@@ -2,7 +2,11 @@ module github.com/innomon/med-agent
 
 go 1.24.4
 
-require google.golang.org/adk v0.2.0
+require (
+	google.golang.org/adk v0.2.0
+	google.golang.org/genai v1.20.0
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
@@ -33,7 +37,6 @@ require (
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	google.golang.org/genai v1.20.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f // indirect
 	google.golang.org/grpc v1.76.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

@@ -8,6 +8,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **OCR Capabilities**: Extracts text from scanned documents and images using Gemini's multimodal capabilities
 - **Document Classification**: Automatically identifies document types (Prescription, Discharge Summary, Lab Report, Diagnostic Report)
 - **FHIR R5 Output**: Generates compliant FHIR resources with proper coding systems (LOINC, SNOMED CT, RxNorm, UCUM)
+- **Config-Driven**: All agents and models defined in YAML configuration
 
 ## Architecture
 
@@ -78,7 +79,11 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 
 ## Usage
 
+MedAgent supports multiple run modes via the ADK launcher:
+
 ### Console Mode (Interactive)
+
+Interactive terminal session for testing:
 
 ```bash
 ./med-agent console
@@ -86,43 +91,91 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 
 ### Web UI Mode
 
+Browser-based interface with file upload support:
+
 ```bash
 ./med-agent web
 ```
 
-Then open http://localhost:8080 in your browser.
+Open http://localhost:8080 in your browser.
+
+Options:
+- `--port PORT` - Custom port (default: 8080)
 
 ### API Server Mode
+
+REST API for integration:
 
 ```bash
 ./med-agent api
 ```
 
-### Example Interaction
+Options:
+- `--port PORT` - Custom port (default: 8080)
 
+### Command Line Options
+
+```bash
+./med-agent [mode] [options]
+
+Modes:
+  console   Interactive terminal mode
+  web       Web UI mode
+  api       REST API server mode
+
+Common Options:
+  --help    Show help message
 ```
-> I have a prescription image. [attach image]
 
-MedAgent: Routing to OCR Agent for text extraction...
-OCR Agent: Extracted prescription text...
-Txt2Fhir Agent: Detected Prescription document, routing to Prescription Agent...
-Prescription Agent: Generated FHIR MedicationRequest:
+## Configuration
 
-{
-  "resourceType": "MedicationRequest",
-  "status": "active",
-  "intent": "order",
-  "medication": {
-    "concept": {
-      "coding": [{
-        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-        "code": "860975",
-        "display": "Metformin 500 MG Oral Tablet"
-      }]
-    }
-  },
-  ...
-}
+Agents and models are configured in `config/config.yaml`:
+
+```yaml
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+  gemini-pro:
+    provider: gemini
+    model_id: gemini-2.5-pro-preview-06-05
+
+agents:
+  MedAgent:
+    description: Root medical agent
+    model: gemini-flash
+    sub_agents:
+      - PDFExtractorAgent
+      - OCRAgent
+    instruction: |
+      Your system prompt here...
+```
+
+### Adding New Models
+
+Add entries under `models:` with provider and model ID:
+
+```yaml
+models:
+  my-model:
+    provider: gemini
+    model_id: gemini-2.0-flash-lite
+```
+
+### Adding New Agents
+
+Add entries under `agents:` with model reference and instruction:
+
+```yaml
+agents:
+  MyAgent:
+    description: Agent description
+    model: gemini-flash
+    sub_agents: []  # optional
+    instruction: |
+      System prompt...
 ```
 
 ## Project Structure
@@ -130,13 +183,15 @@ Prescription Agent: Generated FHIR MedicationRequest:
 ```
 med-agent/
 ├── main.go                      # Entry point with launcher
+├── config/
+│   └── config.yaml             # Agent and model configuration
 ├── internal/
-│   └── agents/
-│       ├── router.go           # Root MedAgent router
-│       ├── pdf.go              # PDF extraction agent
-│       ├── ocr.go              # OCR agent for images
-│       ├── txt2fhir.go         # Document classifier agent
-│       └── specialists.go      # FHIR conversion specialists
+│   ├── config/
+│   │   └── config.go           # Config types and loader
+│   ├── registry/
+│   │   ├── model.go            # Model registry (lazy loading)
+│   │   └── agent.go            # Agent registry (dependency resolution)
+│   └── agents/                 # (legacy - can be removed)
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
@@ -171,8 +226,35 @@ med-agent/
    - **PrescriptionAgent** → MedicationRequest
    - **DischargeSummaryAgent** → Composition
    - **LabReportAgent** → DiagnosticReport (LAB)
-   - **DiagnosticReportAgent** → DiagnosticReport (RAD)
-   - **OthersAgent** → DocumentReference
+   - **DiagnosticImagingAgent** → DiagnosticReport (RAD)
+   - **OtherDocumentAgent** → DocumentReference
+
+## Example Interaction
+
+```
+> I have a prescription image. [attach image]
+
+MedAgent: Routing to OCR Agent for text extraction...
+OCR Agent: Extracted prescription text...
+Txt2Fhir Agent: Detected Prescription document, routing to Prescription Agent...
+Prescription Agent: Generated FHIR MedicationRequest:
+
+{
+  "resourceType": "MedicationRequest",
+  "status": "active",
+  "intent": "order",
+  "medication": {
+    "concept": {
+      "coding": [{
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "860975",
+        "display": "Metformin 500 MG Oral Tablet"
+      }]
+    }
+  },
+  ...
+}
+```
 
 ## Disclaimer
 

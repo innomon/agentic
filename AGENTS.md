@@ -31,13 +31,20 @@ go mod tidy
 ```
 med-agent/
 ├── main.go                      # Entry point with launcher setup
+├── config/
+│   └── config.yaml             # Agent and model configuration
 ├── internal/
-│   └── agents/
-│       ├── router.go           # Root MedAgent router
-│       ├── pdf.go              # PDF extraction agent
-│       ├── ocr.go              # OCR agent for images
-│       ├── txt2fhir.go         # Document classifier agent
-│       └── specialists.go      # FHIR conversion specialists
+│   ├── config/
+│   │   └── config.go           # Config types and loader
+│   ├── registry/
+│   │   ├── model.go            # Model registry
+│   │   └── agent.go            # Agent registry
+│   └── agents/                 # (legacy, can be removed)
+│       ├── router.go
+│       ├── pdf.go
+│       ├── ocr.go
+│       ├── txt2fhir.go
+│       └── specialists.go
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions

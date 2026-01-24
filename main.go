@@ -5,38 +5,36 @@ import (
 	"log"
 	"os"
 
-	"github.com/innomon/med-agent/internal/agents"
+	"github.com/innomon/med-agent/internal/config"
+	"github.com/innomon/med-agent/internal/registry"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
-	"google.golang.org/adk/model/gemini"
-	"google.golang.org/genai"
 )
 
 func main() {
 	ctx := context.Background()
 
-	rootAgent, err := createRootAgent(ctx)
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	modelRegistry := registry.NewModelRegistry(cfg)
+	agentRegistry := registry.NewAgentRegistry(cfg, modelRegistry)
+
+	rootAgent, err := agentRegistry.GetRoot(ctx)
 	if err != nil {
 		log.Fatalf("Failed to create root agent: %v", err)
 	}
 
-	config := &launcher.Config{
+	launcherConfig := &launcher.Config{
 		AgentLoader: agent.NewSingleLoader(rootAgent),
 	}
 
 	l := full.NewLauncher()
-	if err := l.Execute(ctx, config, os.Args[1:]); err != nil {
+	if err := l.Execute(ctx, launcherConfig, os.Args[1:]); err != nil {
 		log.Fatalf("Launcher error: %v\n\n%s", err, l.CommandLineSyntax())
 	}
-}
-
-func createRootAgent(ctx context.Context) (agent.Agent, error) {
-	model, err := gemini.NewModel(ctx, "gemini-2.0-flash", &genai.ClientConfig{})
-	if err != nil {
-		return nil, err
-	}
-
-	return agents.NewMedAgent(ctx, model)
 }
