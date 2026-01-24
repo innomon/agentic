@@ -39,12 +39,7 @@ med-agent/
 │   ├── registry/
 │   │   ├── model.go            # Model registry
 │   │   └── agent.go            # Agent registry
-│   └── agents/                 # (legacy, can be removed)
-│       ├── router.go
-│       ├── pdf.go
-│       ├── ocr.go
-│       ├── txt2fhir.go
-│       └── specialists.go
+
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions

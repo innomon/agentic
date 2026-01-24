@@ -191,7 +191,7 @@ med-agent/
 │   ├── registry/
 │   │   ├── model.go            # Model registry (lazy loading)
 │   │   └── agent.go            # Agent registry (dependency resolution)
-│   └── agents/                 # (legacy - can be removed)
+
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
