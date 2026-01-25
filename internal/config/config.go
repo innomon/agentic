@@ -17,6 +17,10 @@ type ModelConfig struct {
 	Provider string `yaml:"provider"`
 	ModelID  string `yaml:"model_id"`
 	Default  bool   `yaml:"default"`
+	APIKey   string `yaml:"api_key"`
+	Backend  string `yaml:"backend"`
+	Project  string `yaml:"project"`
+	Location string `yaml:"location"`
 }
 
 type AgentConfig struct {

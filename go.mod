@@ -1,12 +1,14 @@
 module github.com/innomon/med-agent
 
-go 1.24.4
+go 1.24.9
 
 require (
 	google.golang.org/adk v0.2.0
-	google.golang.org/genai v1.20.0
+	google.golang.org/genai v1.36.0
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+require github.com/sashabaranov/go-openai v1.41.2 // indirect
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
@@ -14,6 +16,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/a2aproject/a2a-go v0.3.0 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
+	github.com/byebyebruce/adk-go-openai v0.0.0-20251208092515-f5b0ac07643e
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

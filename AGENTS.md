@@ -38,6 +38,7 @@ med-agent/
 │   │   └── config.go           # Config types and loader
 │   ├── registry/
 │   │   ├── model.go            # Model registry
+│   │   ├── regmod.go           # Model creators (Gemini, OpenAI)
 │   │   └── agent.go            # Agent registry
 
 ├── pkg/
@@ -69,4 +70,21 @@ med-agent/
 
 ## Environment Variables
 
-- `GOOGLE_API_KEY` - Required for Gemini model access
+- `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
+- `OPENAI_API_KEY` - Required for OpenAI model access (if not set in config)
+
+## Model Configuration
+
+Models support the following configuration fields in `config/config.yaml`:
+
+```yaml
+models:
+  my-model:
+    provider: gemini          # Required: gemini or openai
+    model_id: gemini-2.0-flash # Required: provider-specific model ID
+    default: true             # Optional: set as default model
+    api_key: ${API_KEY}       # Optional: API key (uses env var if omitted)
+    backend: vertexai         # Optional (Gemini): gemini or vertexai
+    project: my-gcp-project   # Optional (Vertex AI): GCP project ID
+    location: us-central1     # Optional (Vertex AI): GCP region
+```

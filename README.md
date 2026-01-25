@@ -58,7 +58,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 ## Prerequisites
 
 - Go 1.24+
-- Google API Key for Gemini access
+- Google API Key for Gemini access, or OpenAI API Key for OpenAI models
 
 ## Setup
 
@@ -162,7 +162,32 @@ models:
   my-model:
     provider: gemini
     model_id: gemini-2.0-flash-lite
+    api_key: ${GOOGLE_API_KEY}  # optional, uses env var if omitted
+    
+  my-openai-model:
+    provider: openai
+    model_id: gpt-4o
+    api_key: ${OPENAI_API_KEY}
+    
+  my-vertexai-model:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    backend: vertexai
+    project: my-gcp-project
+    location: us-central1
 ```
+
+#### Model Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | Model provider (`gemini` or `openai`) | Yes |
+| `model_id` | Provider-specific model identifier | Yes |
+| `default` | Set to `true` for default model | No |
+| `api_key` | API key for authentication | No (uses env var) |
+| `backend` | For Gemini: `gemini` (default) or `vertexai` | No |
+| `project` | GCP project ID (required for Vertex AI) | No |
+| `location` | GCP region (required for Vertex AI) | No |
 
 ### Adding New Agents
 
@@ -190,6 +215,7 @@ med-agent/
 │   │   └── config.go           # Config types and loader
 │   ├── registry/
 │   │   ├── model.go            # Model registry (lazy loading)
+│   │   ├── regmod.go           # Model creators (Gemini, OpenAI)
 │   │   └── agent.go            # Agent registry (dependency resolution)
 
 ├── pkg/
