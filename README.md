@@ -196,11 +196,49 @@ Add entries under `agents:` with model reference and instruction:
 ```yaml
 agents:
   MyAgent:
+    type: llm            # optional, defaults to "llm"
     description: Agent description
     model: gemini-flash
-    sub_agents: []  # optional
+    sub_agents: []       # optional
     instruction: |
       System prompt...
+```
+
+#### Agent Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `type` | Agent type (default: `llm`) | No |
+| `description` | Agent description for routing | Yes |
+| `model` | Model name from models config | Yes |
+| `sub_agents` | List of sub-agent names | No |
+| `instruction` | System prompt/instructions | Yes |
+
+### Custom Agent Types
+
+Register custom agent types programmatically before initialization:
+
+```go
+import "github.com/innomon/med-agent/internal/registry"
+
+func init() {
+    registry.RegisterAgentType("myType", func(ctx context.Context, cfg *config.AgentConfig, models *registry.ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+        // Custom agent creation logic
+        return myCustomAgent, nil
+    })
+}
+```
+
+Then reference in config:
+
+```yaml
+agents:
+  MyCustomAgent:
+    type: myType
+    description: Custom agent
+    model: gemini-flash
+    instruction: |
+      ...
 ```
 
 ## Project Structure

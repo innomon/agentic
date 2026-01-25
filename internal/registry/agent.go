@@ -10,6 +10,38 @@ import (
 	"google.golang.org/adk/agent/llmagent"
 )
 
+type AgentCreator func(ctx context.Context, cfg *config.AgentConfig, models *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error)
+
+var (
+	agentCreators   = make(map[string]AgentCreator)
+	agentCreatorsMu sync.RWMutex
+)
+
+func RegisterAgentType(typeName string, creator AgentCreator) {
+	agentCreatorsMu.Lock()
+	defer agentCreatorsMu.Unlock()
+	agentCreators[typeName] = creator
+}
+
+func init() {
+	RegisterAgentType("llm", createLLMAgent)
+}
+
+func createLLMAgent(ctx context.Context, cfg *config.AgentConfig, models *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+	m, err := models.Get(ctx, cfg.Model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get model: %w", err)
+	}
+
+	return llmagent.New(llmagent.Config{
+		Name:        cfg.Name,
+		Description: cfg.Description,
+		Model:       m,
+		Instruction: cfg.Instruction,
+		SubAgents:   subAgents,
+	})
+}
+
 type AgentRegistry struct {
 	cfg      *config.Config
 	models   *ModelRegistry
@@ -51,11 +83,6 @@ func (r *AgentRegistry) getOrBuild(ctx context.Context, name string) (agent.Agen
 		return nil, err
 	}
 
-	m, err := r.models.Get(ctx, agentCfg.Model)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get model for agent %q: %w", name, err)
-	}
-
 	var subAgents []agent.Agent
 	for _, subName := range agentCfg.SubAgents {
 		sub, err := r.getOrBuild(ctx, subName)
@@ -65,13 +92,20 @@ func (r *AgentRegistry) getOrBuild(ctx context.Context, name string) (agent.Agen
 		subAgents = append(subAgents, sub)
 	}
 
-	a, err := llmagent.New(llmagent.Config{
-		Name:        name,
-		Description: agentCfg.Description,
-		Model:       m,
-		Instruction: agentCfg.Instruction,
-		SubAgents:   subAgents,
-	})
+	agentType := agentCfg.Type
+	if agentType == "" {
+		agentType = "llm"
+	}
+
+	agentCreatorsMu.RLock()
+	creator, ok := agentCreators[agentType]
+	agentCreatorsMu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("unknown agent type %q for agent %q", agentType, name)
+	}
+
+	agentCfg.Name = name
+	a, err := creator(ctx, agentCfg, r.models, subAgents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent %q: %w", name, err)
 	}

@@ -13,6 +13,7 @@ models:
 
 agents:
   MedAgent:
+    type: llm  # optional, defaults to "llm" - custom types can be registered via registry.RegisterAgentType()
     description: Root medical agent that routes document processing requests to appropriate extraction agents
     model: gemini-flash
     sub_agents:

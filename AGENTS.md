@@ -61,6 +61,32 @@ med-agent/
 - Use `SubAgents` field in `llmagent.Config` for routing to sub-agents
 - ADK-Go auto-injects `transfer_to_agent` tool when SubAgents are declared
 
+## Custom Agent Types
+
+The agent registry supports custom agent types via the factory pattern. Register custom types before agent creation:
+
+```go
+import "github.com/innomon/med-agent/internal/registry"
+
+func init() {
+    registry.RegisterAgentType("myType", func(ctx context.Context, cfg *config.AgentConfig, models *registry.ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+        // Custom agent creation logic
+        return myCustomAgent, nil
+    })
+}
+```
+
+Built-in types:
+- `llm` (default) - Standard LLM agent via `llmagent.New()`
+
+Specify type in config:
+```yaml
+agents:
+  MyAgent:
+    type: myType  # omit for default "llm"
+    description: "..."
+```
+
 ## FHIR Coding Systems
 
 - **RxNorm**: Medications (`http://www.nlm.nih.gov/research/umls/rxnorm`)

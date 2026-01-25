@@ -24,6 +24,8 @@ type ModelConfig struct {
 }
 
 type AgentConfig struct {
+	Name        string   `yaml:"-"`
+	Type        string   `yaml:"type"`
 	Description string   `yaml:"description"`
 	Model       string   `yaml:"model"`
 	SubAgents   []string `yaml:"sub_agents"`
@@ -82,12 +84,12 @@ func (c *Config) GetDefaultModel() (string, ModelConfig, error) {
 	return "", ModelConfig{}, fmt.Errorf("no models configured")
 }
 
-func (c *Config) GetAgent(name string) (AgentConfig, error) {
+func (c *Config) GetAgent(name string) (*AgentConfig, error) {
 	agent, ok := c.Agents[name]
 	if !ok {
-		return AgentConfig{}, fmt.Errorf("agent %q not found", name)
+		return nil, fmt.Errorf("agent %q not found", name)
 	}
-	return agent, nil
+	return &agent, nil
 }
 
 func (c *Config) GetModel(name string) (ModelConfig, error) {
