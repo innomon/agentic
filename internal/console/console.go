@@ -164,7 +164,7 @@ func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 
 	fmt.Println("MedAgent Console (attach files with @/path/to/file syntax)")
 	fmt.Println("Example: Create FHIR from this @./labtest.pdf")
-	fmt.Println("Type '/help' for commands, '/exit' to quit.\n")
+	fmt.Println("Type '/help' for commands, '/exit' to quit.")
 
 	for {
 		fmt.Print("User -> ")
