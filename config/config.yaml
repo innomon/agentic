@@ -1,11 +1,19 @@
 # MedAgent Configuration
 # Model and Agent Registry Configuration
 #
-# Agent Types:
+# Each component type (agent/model) defines its own config schema.
+# Use Go generics to register custom types with componentreg.RegisterAgentType[T]()
+# or componentreg.RegisterModelProvider[T]().
+#
+# Built-in Agent Types:
 #   - llm (default): Standard LLM agent with model and instruction
 #   - sequential: Executes sub-agents once in order
 #   - parallel: Executes sub-agents concurrently
 #   - loop: Repeatedly executes sub-agents (use max_iterations, 0 = until escalation)
+#
+# Built-in Model Providers:
+#   - gemini: Google Gemini models (supports vertexai backend)
+#   - openai: OpenAI-compatible models
 
 models:
   gemini-flash:

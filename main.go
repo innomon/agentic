@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	_ "github.com/innomon/med-agent/internal/componentreg" // register model providers and agent types
 	"github.com/innomon/med-agent/internal/config"
 	"github.com/innomon/med-agent/internal/registry"
 

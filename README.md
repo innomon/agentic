@@ -32,12 +32,12 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
                      │
     ┌────────┬───────┼───────┬────────┐
     ▼        ▼       ▼       ▼        ▼
-┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐
-│Prescrip││Discharge││  Lab   ││Diagnost││ Others │
-│  tion  ││ Summary ││ Report ││ic Imag.││        │
-└────────┘└────────┘└────────┘└────────┘└────────┘
-    │        │       │       │        │
-    ▼        ▼       ▼       ▼        ▼
+┌────────┐┌─────────┐┌────────┐┌──────────┐┌────────┐
+│Prescrip││Discharge││  Lab   ││Diagnost  ││ Others │
+│  tion  ││ Summary ││ Report ││ic Imag.  ││        │
+└────────┘└─────────┘└────────┘└──────────┘└────────┘
+    │        │          │          │          │
+    ▼        ▼          ▼          ▼          ▼
 ┌────────────────────────────────────────────────┐
 │              FHIR R5 JSON Output               │
 │ MedicationRequest│Composition│DiagnosticReport │
@@ -258,16 +258,39 @@ agents:
 
 ### Custom Agent Types
 
-Register custom agent types programmatically before initialization:
+Register custom agent types with their own config schema using Go generics:
 
 ```go
-import "github.com/innomon/med-agent/internal/registry"
+package myagent
+
+import (
+    "context"
+    "github.com/innomon/med-agent/internal/componentreg"
+    "google.golang.org/adk/agent"
+)
+
+// Define your config struct with custom fields
+type MyAgentConfig struct {
+    componentreg.AgentBase `yaml:",inline"`
+    CustomField string `yaml:"custom_field"`
+    Threshold   int    `yaml:"threshold"`
+}
+
+// Optional: implement Validate() for custom validation
+func (c *MyAgentConfig) Validate() error {
+    if c.Threshold < 0 {
+        return fmt.Errorf("threshold must be non-negative")
+    }
+    return nil
+}
 
 func init() {
-    registry.RegisterAgentType("myType", func(ctx context.Context, cfg *config.AgentConfig, models *registry.ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
-        // Custom agent creation logic
-        return myCustomAgent, nil
-    })
+    componentreg.RegisterAgentType("myType", createMyAgent)
+}
+
+func createMyAgent(ctx context.Context, name string, cfg *MyAgentConfig, models componentreg.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+    // cfg is fully typed - access cfg.CustomField, cfg.Threshold directly
+    return myCustomAgent, nil
 }
 ```
 
@@ -278,9 +301,48 @@ agents:
   MyCustomAgent:
     type: myType
     description: Custom agent
-    model: gemini-flash
-    instruction: |
-      ...
+    custom_field: some-value
+    threshold: 10
+```
+
+### Custom Model Providers
+
+Register custom model providers with their own config schema:
+
+```go
+package myprovider
+
+import (
+    "context"
+    "github.com/innomon/med-agent/internal/componentreg"
+    "google.golang.org/adk/model"
+)
+
+type MyProviderConfig struct {
+    componentreg.ModelBase `yaml:",inline"`
+    Endpoint string `yaml:"endpoint"`
+    Timeout  int    `yaml:"timeout"`
+}
+
+func init() {
+    componentreg.RegisterModelProvider("myprovider", createMyModel)
+}
+
+func createMyModel(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
+    // cfg is fully typed - access cfg.Endpoint, cfg.Timeout directly
+    return myModel, nil
+}
+```
+
+Then reference in config:
+
+```yaml
+models:
+  my-custom-model:
+    provider: myprovider
+    model_id: custom-v1
+    endpoint: https://api.example.com
+    timeout: 30
 ```
 
 ## Project Structure
@@ -291,13 +353,15 @@ med-agent/
 ├── config/
 │   └── config.yaml             # Agent and model configuration
 ├── internal/
+│   ├── componentreg/           # Generic component registry (Go generics)
+│   │   ├── registry.go         # Core registration with generics
+│   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│   │   └── agents.go           # Built-in agent types (llm, sequential, etc.)
 │   ├── config/
-│   │   └── config.go           # Config types and loader
-│   ├── registry/
-│   │   ├── model.go            # Model registry (lazy loading)
-│   │   ├── regmod.go           # Model creators (Gemini, OpenAI)
-│   │   └── agent.go            # Agent registry (dependency resolution)
-
+│   │   └── config.go           # Config loader with schema-based parsing
+│   └── registry/
+│       ├── model.go            # Model registry (lazy loading)
+│       └── agent.go            # Agent registry (dependency resolution)
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions

@@ -34,13 +34,15 @@ med-agent/
 ├── config/
 │   └── config.yaml             # Agent and model configuration
 ├── internal/
+│   ├── componentreg/           # Generic component registry (Go generics)
+│   │   ├── registry.go         # Core registration with generics
+│   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│   │   └── agents.go           # Built-in agent types (llm, sequential, etc.)
 │   ├── config/
-│   │   └── config.go           # Config types and loader
-│   ├── registry/
-│   │   ├── model.go            # Model registry
-│   │   ├── regmod.go           # Model creators (Gemini, OpenAI)
-│   │   └── agent.go            # Agent registry
-
+│   │   └── config.go           # Config loader with schema-based parsing
+│   └── registry/
+│       ├── model.go            # Model registry (lazy loading)
+│       └── agent.go            # Agent registry (dependency resolution)
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
@@ -63,14 +65,23 @@ med-agent/
 
 ## Custom Agent Types
 
-The agent registry supports custom agent types via the factory pattern. Register custom types before agent creation:
+The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
 
 ```go
-import "github.com/innomon/med-agent/internal/registry"
+import "github.com/innomon/med-agent/internal/componentreg"
+
+// Define config struct with custom fields
+type MyAgentConfig struct {
+    componentreg.AgentBase `yaml:",inline"`
+    CustomField string `yaml:"custom_field"`
+}
+
+// Optional: implement Validate() for validation
+func (c *MyAgentConfig) Validate() error { return nil }
 
 func init() {
-    registry.RegisterAgentType("myType", func(ctx context.Context, cfg *config.AgentConfig, models *registry.ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
-        // Custom agent creation logic
+    componentreg.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models componentreg.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+        // cfg is fully typed - access cfg.CustomField directly
         return myCustomAgent, nil
     })
 }
@@ -88,6 +99,7 @@ agents:
   MyAgent:
     type: myType  # omit for default "llm"
     description: "..."
+    custom_field: "value"  # custom fields defined by component
 
   MyWorkflow:
     type: sequential
@@ -102,6 +114,25 @@ agents:
     max_iterations: 3  # 0 = run until escalation
     sub_agents:
       - RefineAgent
+```
+
+## Custom Model Providers
+
+Register model providers with custom config schemas:
+
+```go
+import "github.com/innomon/med-agent/internal/componentreg"
+
+type MyProviderConfig struct {
+    componentreg.ModelBase `yaml:",inline"`
+    Endpoint string `yaml:"endpoint"`
+}
+
+func init() {
+    componentreg.RegisterModelProvider("myprovider", func(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
+        return createModel(cfg.Endpoint, cfg.ModelID), nil
+    })
+}
 ```
 
 ## FHIR Coding Systems

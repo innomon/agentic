@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/innomon/med-agent/internal/componentreg"
 	"github.com/innomon/med-agent/internal/config"
 	"google.golang.org/adk/model"
 )
@@ -37,12 +38,12 @@ func (r *ModelRegistry) Get(ctx context.Context, name string) (model.LLM, error)
 		return m, nil
 	}
 
-	modelCfg, err := r.cfg.GetModel(name)
+	entry, err := r.cfg.GetModel(name)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := r.createModel(ctx, modelCfg)
+	m, err := componentreg.CreateModel(ctx, entry.Provider, entry.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create model %q: %w", name, err)
 	}
@@ -57,12 +58,4 @@ func (r *ModelRegistry) GetDefault(ctx context.Context) (model.LLM, error) {
 		return nil, err
 	}
 	return r.Get(ctx, name)
-}
-
-func (r *ModelRegistry) createModel(ctx context.Context, cfg config.ModelConfig) (model.LLM, error) {
-	creator, ok := GetModelCreator(cfg.Provider)
-	if !ok {
-		return nil, fmt.Errorf("unsupported model provider: %s", cfg.Provider)
-	}
-	return creator(ctx, cfg)
 }
