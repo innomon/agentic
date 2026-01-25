@@ -15,6 +15,8 @@ import (
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"
+	"google.golang.org/adk/cmd/launcher/web/api"
+	"google.golang.org/adk/cmd/launcher/web/webui"
 )
 
 func main() {
@@ -52,8 +54,8 @@ func main() {
 
 	// Create launcher with custom console (file attachment support) and web UI
 	l := universal.NewLauncher(
-		console.New(),      // Custom console with @/path/to/file syntax
-		web.NewLauncher(), // Web UI and API server
+		console.New(), // Custom console with @/path/to/file syntax
+		web.NewLauncher(api.NewLauncher(), webui.NewLauncher()), // Web UI and API server
 	)
 
 	if err := l.Execute(ctx, launcherConfig, os.Args[largs:]); err != nil {
