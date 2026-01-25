@@ -13,15 +13,17 @@ import (
 type AgentRegistry struct {
 	cfg      *config.Config
 	models   *ModelRegistry
+	tools    *ToolRegistry
 	agents   map[string]agent.Agent
 	building map[string]bool
 	mu       sync.Mutex
 }
 
-func NewAgentRegistry(cfg *config.Config, models *ModelRegistry) *AgentRegistry {
+func NewAgentRegistry(cfg *config.Config, models *ModelRegistry, tools *ToolRegistry) *AgentRegistry {
 	return &AgentRegistry{
 		cfg:      cfg,
 		models:   models,
+		tools:    tools,
 		agents:   make(map[string]agent.Agent),
 		building: make(map[string]bool),
 	}
@@ -60,7 +62,7 @@ func (r *AgentRegistry) getOrBuild(ctx context.Context, name string) (agent.Agen
 		subAgents = append(subAgents, sub)
 	}
 
-	a, err := componentreg.CreateAgent(ctx, entry.Type, name, entry.Config, r.models, subAgents)
+	a, err := componentreg.CreateAgent(ctx, entry.Type, name, entry.Config, r.models, r.tools, subAgents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent %q: %w", name, err)
 	}

@@ -78,12 +78,16 @@ type ModelRegistry interface {
 	Get(ctx context.Context, name string) (model.LLM, error)
 }
 
-type AgentCreator[T any] func(ctx context.Context, name string, cfg *T, models ModelRegistry, sub []agent.Agent) (agent.Agent, error)
+type ToolRegistry interface {
+	GetMultiple(ctx context.Context, names []string) (any, error)
+}
+
+type AgentCreator[T any] func(ctx context.Context, name string, cfg *T, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
 
 type agentTypeEntry struct {
 	schema reflect.Type
 	decode func(*yaml.Node) (any, error)
-	create func(ctx context.Context, name string, cfg any, models ModelRegistry, sub []agent.Agent) (agent.Agent, error)
+	create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
 }
 
 var (
@@ -110,13 +114,13 @@ func RegisterAgentType[T any](typeName string, creator AgentCreator[T]) {
 			}
 			return cfg, nil
 		},
-		create: func(ctx context.Context, name string, a any, models ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
-			return creator(ctx, name, a.(*T), models, sub)
+		create: func(ctx context.Context, name string, a any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+			return creator(ctx, name, a.(*T), models, tools, sub)
 		},
 	}
 }
 
-func GetAgentType(typeName string) (decode func(*yaml.Node) (any, error), create func(ctx context.Context, name string, cfg any, models ModelRegistry, sub []agent.Agent) (agent.Agent, error), ok bool) {
+func GetAgentType(typeName string) (decode func(*yaml.Node) (any, error), create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error), ok bool) {
 	agentTypesMu.RLock()
 	defer agentTypesMu.RUnlock()
 	e, ok := agentTypes[typeName]
@@ -187,10 +191,10 @@ func CreateModel(ctx context.Context, provider string, cfg any) (model.LLM, erro
 	return create(ctx, cfg)
 }
 
-func CreateAgent(ctx context.Context, typeName, name string, cfg any, models ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func CreateAgent(ctx context.Context, typeName, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	_, create, ok := GetAgentType(typeName)
 	if !ok {
 		return nil, fmt.Errorf("unknown agent type %q", typeName)
 	}
-	return create(ctx, name, cfg, models, sub)
+	return create(ctx, name, cfg, models, tools, sub)
 }

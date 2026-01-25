@@ -9,6 +9,7 @@ import (
 	"google.golang.org/adk/agent/workflowagents/loopagent"
 	"google.golang.org/adk/agent/workflowagents/parallelagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
+	"google.golang.org/adk/tool"
 )
 
 type AgentBase struct {
@@ -19,8 +20,9 @@ type AgentBase struct {
 
 type LLMAgentConfig struct {
 	AgentBase   `yaml:",inline"`
-	Model       string `yaml:"model"`
-	Instruction string `yaml:"instruction"`
+	Model       string   `yaml:"model"`
+	Instruction string   `yaml:"instruction"`
+	Tools       []string `yaml:"tools"`
 }
 
 func (c *LLMAgentConfig) Validate() error {
@@ -43,22 +45,37 @@ type LoopAgentConfig struct {
 	MaxIterations uint `yaml:"max_iterations"`
 }
 
-func llmCreator(ctx context.Context, name string, cfg *LLMAgentConfig, models ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func llmCreator(ctx context.Context, name string, cfg *LLMAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	m, err := models.Get(ctx, cfg.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model: %w", err)
 	}
 
-	return llmagent.New(llmagent.Config{
+	agentCfg := llmagent.Config{
 		Name:        name,
 		Description: cfg.Description,
 		Model:       m,
 		Instruction: cfg.Instruction,
 		SubAgents:   sub,
-	})
+	}
+
+	// Add tools if specified
+	if len(cfg.Tools) > 0 && tools != nil {
+		toolSet, err := tools.GetMultiple(ctx, cfg.Tools)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tools: %w", err)
+		}
+		if toolSet != nil {
+			if t, ok := toolSet.([]tool.Tool); ok {
+				agentCfg.Tools = t
+			}
+		}
+	}
+
+	return llmagent.New(agentCfg)
 }
 
-func sequentialCreator(_ context.Context, name string, cfg *SequentialAgentConfig, _ ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func sequentialCreator(_ context.Context, name string, cfg *SequentialAgentConfig, _ ModelRegistry, _ ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	return sequentialagent.New(sequentialagent.Config{
 		AgentConfig: agent.Config{
 			Name:        name,
@@ -68,7 +85,7 @@ func sequentialCreator(_ context.Context, name string, cfg *SequentialAgentConfi
 	})
 }
 
-func parallelCreator(_ context.Context, name string, cfg *ParallelAgentConfig, _ ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func parallelCreator(_ context.Context, name string, cfg *ParallelAgentConfig, _ ModelRegistry, _ ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	return parallelagent.New(parallelagent.Config{
 		AgentConfig: agent.Config{
 			Name:        name,
@@ -78,7 +95,7 @@ func parallelCreator(_ context.Context, name string, cfg *ParallelAgentConfig, _
 	})
 }
 
-func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRegistry, _ ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	return loopagent.New(loopagent.Config{
 		AgentConfig: agent.Config{
 			Name:        name,

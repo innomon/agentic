@@ -37,7 +37,8 @@ med-agent/
 │   ├── componentreg/           # Generic component registry (Go generics)
 │   │   ├── registry.go         # Core registration with generics
 │   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
-│   │   └── agents.go           # Built-in agent types (llm, sequential, etc.)
+│   │   ├── agents.go           # Built-in agent types (llm, sequential, etc.)
+│   │   └── tools.go            # Tools registry and built-in tool types
 │   ├── config/
 │   │   └── config.go           # Config loader with schema-based parsing
 │   └── registry/
@@ -62,6 +63,28 @@ med-agent/
 - Agent functions should accept `(ctx context.Context, m model.LLM)` and return `(agent.Agent, error)`
 - Use `SubAgents` field in `llmagent.Config` for routing to sub-agents
 - ADK-Go auto-injects `transfer_to_agent` tool when SubAgents are declared
+
+## Tools Registry
+
+Tools are defined in YAML and referenced by agents. Register Go handlers for execution:
+
+```yaml
+tools:
+  my_tool:
+    description: Tool description
+    parameters:
+      param1: {type: string, required: true}
+
+agents:
+  MyAgent:
+    tools: [my_tool]  # attach tools to agent
+```
+
+```go
+componentreg.RegisterToolHandler("my_tool", func(ctx context.Context, args map[string]any) (any, error) {
+    return result, nil
+})
+```
 
 ## Custom Agent Types
 

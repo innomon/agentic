@@ -12,6 +12,7 @@ import (
 type RawConfig struct {
 	Models map[string]*yaml.Node `yaml:"models"`
 	Agents map[string]*yaml.Node `yaml:"agents"`
+	Tools  map[string]*yaml.Node `yaml:"tools"`
 }
 
 type ModelEntry struct {
@@ -24,12 +25,20 @@ type AgentEntry struct {
 	Name      string
 	Type      string
 	SubAgents []string
+	Tools     []string
 	Config    any
+}
+
+type ToolEntry struct {
+	Name   string
+	Type   string
+	Config any
 }
 
 type Config struct {
 	Models map[string]ModelEntry
 	Agents map[string]AgentEntry
+	Tools  map[string]ToolEntry
 }
 
 func Load(path string) (*Config, error) {
@@ -50,6 +59,7 @@ func parseAndValidate(raw *RawConfig) (*Config, error) {
 	cfg := &Config{
 		Models: make(map[string]ModelEntry),
 		Agents: make(map[string]AgentEntry),
+		Tools:  make(map[string]ToolEntry),
 	}
 
 	for name, node := range raw.Models {
@@ -71,6 +81,7 @@ func parseAndValidate(raw *RawConfig) (*Config, error) {
 		}
 
 		var subAgents []string
+		var tools []string
 		if base, ok := cfgAny.(interface{ GetSubAgents() []string }); ok {
 			subAgents = base.GetSubAgents()
 		} else {
@@ -81,11 +92,32 @@ func parseAndValidate(raw *RawConfig) (*Config, error) {
 			subAgents = d.SubAgents
 		}
 
+		// Extract tools list
+		var td struct {
+			Tools []string `yaml:"tools"`
+		}
+		_ = node.Decode(&td)
+		tools = td.Tools
+
 		cfg.Agents[name] = AgentEntry{
 			Name:      name,
 			Type:      typeName,
 			SubAgents: subAgents,
+			Tools:     tools,
 			Config:    cfgAny,
+		}
+	}
+
+	// Parse tools
+	for name, node := range raw.Tools {
+		typeName, cfgAny, err := componentreg.DecodeToolConfig(name, node)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Tools[name] = ToolEntry{
+			Name:   name,
+			Type:   typeName,
+			Config: cfgAny,
 		}
 	}
 
@@ -147,4 +179,12 @@ func (c *Config) GetModel(name string) (ModelEntry, error) {
 		return ModelEntry{}, fmt.Errorf("model %q not found", name)
 	}
 	return model, nil
+}
+
+func (c *Config) GetTool(name string) (*ToolEntry, error) {
+	tool, ok := c.Tools[name]
+	if !ok {
+		return nil, fmt.Errorf("tool %q not found", name)
+	}
+	return &tool, nil
 }

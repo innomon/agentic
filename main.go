@@ -23,7 +23,8 @@ func main() {
 	}
 
 	modelRegistry := registry.NewModelRegistry(cfg)
-	agentRegistry := registry.NewAgentRegistry(cfg, modelRegistry)
+	toolRegistry := registry.NewToolRegistry(cfg)
+	agentRegistry := registry.NewAgentRegistry(cfg, modelRegistry, toolRegistry)
 
 	rootAgent, err := agentRegistry.GetRoot(ctx)
 	if err != nil {

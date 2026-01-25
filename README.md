@@ -8,7 +8,8 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **OCR Capabilities**: Extracts text from scanned documents and images using Gemini's multimodal capabilities
 - **Document Classification**: Automatically identifies document types (Prescription, Discharge Summary, Lab Report, Diagnostic Report)
 - **FHIR R5 Output**: Generates compliant FHIR resources with proper coding systems (LOINC, SNOMED CT, RxNorm, UCUM)
-- **Config-Driven**: All agents and models defined in YAML configuration
+- **Config-Driven**: All agents, models, and tools defined in YAML configuration
+- **Extensible Tools**: Define custom tools in YAML with Go handlers for agent capabilities
 
 ## Architecture
 
@@ -129,7 +130,7 @@ Common Options:
 
 ## Configuration
 
-Agents and models are configured in `config/config.yaml`:
+Agents, models, and tools are configured in `config/config.yaml`:
 
 ```yaml
 models:
@@ -237,6 +238,7 @@ agents:
 | `description` | Agent description for routing | Yes |
 | `model` | Model name from models config | Yes (for `llm`) |
 | `sub_agents` | List of sub-agent names | No |
+| `tools` | List of tool names from tools config | No |
 | `instruction` | System prompt/instructions | Yes (for `llm`) |
 | `max_iterations` | Loop iterations (0 = until escalation) | No (for `loop`) |
 
@@ -330,6 +332,115 @@ agents:
     threshold: 10
 ```
 
+### Tools Registry
+
+Tools can be defined in YAML and reused across agents. Register tool handlers in Go, then reference tools by name in agent configs.
+
+#### Defining Tools in Config
+
+```yaml
+tools:
+  get_weather:
+    description: Get current weather for a location
+    parameters:
+      location: {type: string, required: true, description: City name}
+      unit: {type: string, description: celsius or fahrenheit}
+
+  search_documents:
+    description: Search medical documents
+    parameters:
+      query: {type: string, required: true}
+      limit: {type: integer}
+
+agents:
+  WeatherAgent:
+    model: gemini-flash
+    tools: [get_weather]  # reference tools by name
+    instruction: |
+      You help users check weather...
+```
+
+#### Registering Tool Handlers
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/innomon/med-agent/internal/componentreg"
+)
+
+func init() {
+    // Register handler for the "get_weather" tool
+    componentreg.RegisterToolHandler("get_weather", func(ctx context.Context, args map[string]any) (any, error) {
+        location := args["location"].(string)
+        // Fetch weather data...
+        return map[string]any{
+            "temperature": 22,
+            "condition":   "sunny",
+        }, nil
+    })
+}
+```
+
+#### Tool Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `type` | Tool type (default: `builtin`) | No |
+| `description` | Tool description for the LLM | Yes |
+| `parameters` | Map of parameter definitions | No |
+
+#### Parameter Fields
+
+| Field | Description |
+|-------|-------------|
+| `type` | `string`, `number`, `integer`, `boolean`, `array`, `object` |
+| `description` | Parameter description |
+| `required` | Whether the parameter is required |
+
+#### Custom Tool Types
+
+Register custom tool types with their own config schema:
+
+```go
+import (
+    "context"
+    "github.com/innomon/med-agent/internal/componentreg"
+    "google.golang.org/adk/tool"
+    "google.golang.org/adk/tool/functiontool"
+)
+
+type APIToolConfig struct {
+    componentreg.ToolBase `yaml:",inline"`
+    Endpoint string `yaml:"endpoint"`
+    Method   string `yaml:"method"`
+}
+
+func init() {
+    componentreg.RegisterToolType("api", func(ctx context.Context, name string, cfg *APIToolConfig) (tool.Tool, error) {
+        return functiontool.New(functiontool.Config{
+            Name:        name,
+            Description: cfg.Description,
+        }, func(tctx tool.Context, args map[string]any) (any, error) {
+            // Make API call to cfg.Endpoint...
+            return result, nil
+        })
+    })
+}
+```
+
+Then use in config:
+
+```yaml
+tools:
+  fetch_patient:
+    type: api
+    description: Fetch patient data from EHR
+    endpoint: https://ehr.example.com/api/patients
+    method: GET
+```
+
 ### Custom Model Providers
 
 Register custom model providers with their own config schema:
@@ -376,18 +487,20 @@ models:
 med-agent/
 ├── main.go                      # Entry point with launcher
 ├── config/
-│   └── config.yaml             # Agent and model configuration
+│   └── config.yaml             # Agent, model, and tool configuration
 ├── internal/
 │   ├── componentreg/           # Generic component registry (Go generics)
 │   │   ├── registry.go         # Core registration with generics
 │   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
 │   │   ├── ollama.go           # Ollama provider (official OpenAI SDK)
-│   │   └── agents.go           # Built-in agent types (llm, sequential, etc.)
+│   │   ├── agents.go           # Built-in agent types (llm, sequential, etc.)
+│   │   └── tools.go            # Tools registry and built-in tool types
 │   ├── config/
 │   │   └── config.go           # Config loader with schema-based parsing
 │   └── registry/
 │       ├── model.go            # Model registry (lazy loading)
-│       └── agent.go            # Agent registry (dependency resolution)
+│       ├── agent.go            # Agent registry (dependency resolution)
+│       └── tool.go             # Tool registry (lazy loading)
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
