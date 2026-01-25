@@ -10,20 +10,54 @@ MedAgent is a medical document transcription agent built with Google's ADK-Go fr
 # Build the project
 go build -o med-agent .
 
-# Run in console mode
+# Run in console mode (with @file attachment syntax)
 ./med-agent console
 
-# Run in web UI mode
+# Run in web UI mode (http://localhost:8080/ui/)
 ./med-agent web
-
-# Run as API server
-./med-agent api
 
 # Run tests
 go test ./...
 
 # Tidy dependencies
 go mod tidy
+```
+
+### Console Mode File Attachments
+
+The console supports attaching files using `@/path/to/file` syntax:
+
+```bash
+./med-agent console
+User -> Create FHIR from this lab report @./document.pdf
+User -> Extract prescription @./image.png @./notes.txt
+```
+
+### API File Attachments
+
+Send files via the REST API using base64-encoded inline data:
+
+```bash
+# Create session
+SESSION=$(curl -s -X POST "http://localhost:8080/api/apps/MedAgent/users/user/sessions" \
+  -H "Content-Type: application/json" -d '{}' | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+
+# Send PDF
+curl -N -X POST "http://localhost:8080/api/run_sse" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appName": "MedAgent",
+    "userId": "user",
+    "sessionId": "'"$SESSION"'",
+    "streaming": true,
+    "newMessage": {
+      "role": "user",
+      "parts": [
+        {"text": "Create FHIR from this"},
+        {"inlineData": {"mimeType": "application/pdf", "data": "'"$(base64 -w0 file.pdf)"'"}}
+      ]
+    }
+  }'
 ```
 
 ## Project Structure
@@ -37,13 +71,17 @@ med-agent/
 │   ├── componentreg/           # Generic component registry (Go generics)
 │   │   ├── registry.go         # Core registration with generics
 │   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│   │   ├── ollama.go           # Ollama provider (official OpenAI SDK)
 │   │   ├── agents.go           # Built-in agent types (llm, sequential, etc.)
 │   │   └── tools.go            # Tools registry and built-in tool types
 │   ├── config/
 │   │   └── config.go           # Config loader with schema-based parsing
+│   ├── console/
+│   │   └── console.go          # Custom console with @file attachment syntax
 │   └── registry/
 │       ├── model.go            # Model registry (lazy loading)
-│       └── agent.go            # Agent registry (dependency resolution)
+│       ├── agent.go            # Agent registry (dependency resolution)
+│       └── tool.go             # Tool registry (lazy loading)
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
@@ -59,10 +97,11 @@ med-agent/
 - Models are created via `google.golang.org/adk/model/gemini`
 - Agents use `google.golang.org/adk/agent/llmagent`
 - Launcher from `google.golang.org/adk/cmd/launcher`
-- Use `full.NewLauncher()` from `google.golang.org/adk/cmd/launcher/full`
+- Use `universal.NewLauncher()` from `google.golang.org/adk/cmd/launcher/universal` with custom sub-launchers
 - Agent functions should accept `(ctx context.Context, m model.LLM)` and return `(agent.Agent, error)`
 - Use `SubAgents` field in `llmagent.Config` for routing to sub-agents
 - ADK-Go auto-injects `transfer_to_agent` tool when SubAgents are declared
+- **ADK limitation**: Each agent can only have one parent. Duplicate agent trees if multiple parents need the same sub-agent.
 
 ## Tools Registry
 

@@ -17,34 +17,35 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 ┌─────────────────────────────────────────────────────┐
 │                MedAgent (Router)                    │
 │         Detects input type and routes               │
-└─────────────┬───────────────┬───────────────────────┘
-              │               │
-    ┌─────────▼─────┐   ┌─────▼─────┐
-    │ PDF Extractor │   │ OCR Agent │
-    │    Agent      │   │           │
-    └───────┬───────┘   └─────┬─────┘
-            │                 │
-            └────────┬────────┘
-                     │
-           ┌─────────▼─────────┐
-           │   Txt2Fhir Agent  │
-           │  (Classifier)     │
-           └─────────┬─────────┘
-                     │
-    ┌────────┬───────┼───────┬────────┐
-    ▼        ▼       ▼       ▼        ▼
-┌────────┐┌─────────┐┌────────┐┌──────────┐┌────────┐
-│Prescrip││Discharge││  Lab   ││Diagnost  ││ Others │
-│  tion  ││ Summary ││ Report ││ic Imag.  ││        │
-└────────┘└─────────┘└────────┘└──────────┘└────────┘
-    │        │          │          │          │
-    ▼        ▼          ▼          ▼          ▼
-┌────────────────────────────────────────────────┐
-│              FHIR R5 JSON Output               │
-│ MedicationRequest│Composition│DiagnosticReport │
-│               DocumentReference                │
-└────────────────────────────────────────────────┘
+└─────────────┬───────────────────┬───────────────────┘
+              │                   │
+    ┌─────────▼─────────┐   ┌─────▼─────────┐
+    │ PDFExtractorAgent │   │   OCRAgent    │
+    │  (PDF documents)  │   │   (Images)    │
+    └─────────┬─────────┘   └───────┬───────┘
+              │                     │
+    ┌─────────▼─────────┐   ┌───────▼───────┐
+    │ PDFTxt2FhirAgent  │   │OCRTxt2FhirAgent│
+    │   (Classifier)    │   │  (Classifier)  │
+    └─────────┬─────────┘   └───────┬───────┘
+              │                     │
+    ┌────┬────┼────┬────┐   ┌────┬──┼──┬────┐
+    ▼    ▼    ▼    ▼    ▼   ▼    ▼  ▼  ▼    ▼
+ ┌─────────────────────────────────────────────┐
+ │           Specialist Agents (per branch)    │
+ │  Prescription │ DischargeSummary │ LabReport│
+ │  DiagnosticImaging │ OtherDocument          │
+ └─────────────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────┐
+│               FHIR R5 JSON Output               │
+│  MedicationRequest │ Composition │ DiagnosticReport │
+│                DocumentReference                │
+└─────────────────────────────────────────────────┘
 ```
+
+> **Note:** Each branch (PDF/OCR) has its own set of specialist agents to comply with ADK's single-parent constraint.
 
 ## FHIR R5 Resources Generated
 
@@ -84,32 +85,120 @@ MedAgent supports multiple run modes via the ADK launcher:
 
 ### Console Mode (Interactive)
 
-Interactive terminal session for testing:
+Interactive terminal session with file attachment support:
 
 ```bash
 ./med-agent console
 ```
+
+**Attach files using `@/path/to/file` syntax:**
+
+```
+MedAgent Console (attach files with @/path/to/file syntax)
+Example: Create FHIR from this @./labtest.pdf
+Type 'exit' or 'quit' to exit.
+
+User -> Create a FHIR record from this lab report @./document.pdf
+[Attached: document.pdf (application/pdf, 125432 bytes)]
+
+Agent -> ...
+```
+
+**Examples:**
+```bash
+# Single file
+User -> Extract prescription from this image @./prescription.png
+
+# Multiple files
+User -> Compare these two reports @./report1.pdf @./report2.pdf
+
+# With home directory expansion
+User -> Process this @~/Documents/labtest.pdf
+```
+
+**Supported file types:**
+- PDF: `.pdf`
+- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.tiff`
+- Text: `.txt`, `.json`, `.csv`, `.xml`, `.html`
 
 ### Web UI Mode
 
 Browser-based interface with file upload support:
 
 ```bash
-./med-agent web api webui
+./med-agent web
 ```
 
-Open http://localhost:8080 in your browser.
+Open http://localhost:8080/ui/ in your browser. You can drag-and-drop PDF and image files directly.
 
 Options:
 - `--port PORT` - Custom port (default: 8080)
 
 ### API Server Mode
 
-REST API for integration:
+REST API for integration with file attachments via base64 encoding:
 
 ```bash
-./med-agent api
+./med-agent web
 ```
+
+#### Sending Files via API
+
+1. **Create a session:**
+   ```bash
+   SESSION=$(curl -s -X POST "http://localhost:8080/api/apps/MedAgent/users/user/sessions" \
+     -H "Content-Type: application/json" -d '{}' | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+   echo "Session: $SESSION"
+   ```
+
+2. **Send a PDF file with a prompt:**
+   ```bash
+   curl -N -X POST "http://localhost:8080/api/run_sse" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "appName": "MedAgent",
+       "userId": "user",
+       "sessionId": "'"$SESSION"'",
+       "streaming": true,
+       "newMessage": {
+         "role": "user",
+         "parts": [
+           {"text": "Create a FHIR record from this lab report"},
+           {"inlineData": {"mimeType": "application/pdf", "data": "'"$(base64 -w0 /path/to/document.pdf)"'"}}
+         ]
+       }
+     }'
+   ```
+
+3. **Send an image file:**
+   ```bash
+   curl -N -X POST "http://localhost:8080/api/run_sse" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "appName": "MedAgent",
+       "userId": "user",
+       "sessionId": "'"$SESSION"'",
+       "streaming": true,
+       "newMessage": {
+         "role": "user",
+         "parts": [
+           {"text": "Extract prescription from this image"},
+           {"inlineData": {"mimeType": "image/png", "data": "'"$(base64 -w0 /path/to/image.png)"'"}}
+         ]
+       }
+     }'
+   ```
+
+#### Supported MIME Types
+
+| Format | MIME Type |
+|--------|-----------|
+| PDF | `application/pdf` |
+| PNG | `image/png` |
+| JPEG | `image/jpeg` |
+| GIF | `image/gif` |
+| WebP | `image/webp` |
+| TIFF | `image/tiff` |
 
 Options:
 - `--port PORT` - Custom port (default: 8080)
@@ -497,6 +586,8 @@ med-agent/
 │   │   └── tools.go            # Tools registry and built-in tool types
 │   ├── config/
 │   │   └── config.go           # Config loader with schema-based parsing
+│   ├── console/
+│   │   └── console.go          # Custom console with @file attachment syntax
 │   └── registry/
 │       ├── model.go            # Model registry (lazy loading)
 │       ├── agent.go            # Agent registry (dependency resolution)
@@ -516,27 +607,29 @@ med-agent/
    - Detects input type (PDF vs Image)
    - Routes to appropriate extraction agent
 
-2. **PDFExtractorAgent**
+2. **PDFExtractorAgent** (PDF Branch)
    - Extracts text from PDF documents
    - Handles multi-page documents
-   - Transfers to Txt2FhirAgent
+   - Transfers to PDFTxt2FhirAgent
 
-3. **OCRAgent**
+3. **OCRAgent** (Image Branch)
    - Extracts text from images
    - Handles handwritten prescriptions
-   - Transfers to Txt2FhirAgent
+   - Transfers to OCRTxt2FhirAgent
 
-4. **Txt2FhirAgent** (Classifier)
+4. **PDFTxt2FhirAgent / OCRTxt2FhirAgent** (Classifiers)
    - Analyzes extracted text
    - Classifies document type
-   - Routes to specialist agent
+   - Routes to branch-specific specialist agent
 
-5. **Specialist Agents**
-   - **PrescriptionAgent** → MedicationRequest
-   - **DischargeSummaryAgent** → Composition
-   - **LabReportAgent** → DiagnosticReport (LAB)
-   - **DiagnosticImagingAgent** → DiagnosticReport (RAD)
-   - **OtherDocumentAgent** → DocumentReference
+5. **Specialist Agents** (Separate sets for PDF and OCR branches)
+   - **PDFPrescriptionAgent / OCRPrescriptionAgent** → MedicationRequest
+   - **PDFDischargeSummaryAgent / OCRDischargeSummaryAgent** → Composition
+   - **PDFLabReportAgent / OCRLabReportAgent** → DiagnosticReport (LAB)
+   - **PDFDiagnosticImagingAgent / OCRDiagnosticImagingAgent** → DiagnosticReport (RAD)
+   - **PDFOtherDocumentAgent / OCROtherDocumentAgent** → DocumentReference
+
+> **Why separate branches?** ADK-Go requires each agent to have only one parent. Since both PDFExtractor and OCRAgent need to route to the same classifier/specialist flow, we duplicate the downstream agents for each branch.
 
 ## Example Interaction
 

@@ -80,7 +80,7 @@ agents:
     description: Extracts text from medical PDF documents using multimodal capabilities
     model: gemini-flash
     sub_agents:
-      - Txt2FhirAgent
+      - PDFTxt2FhirAgent
     instruction: |
       You are a medical PDF extraction specialist agent. Your role is to extract text from PDF documents of medical records using your multimodal vision capabilities.
 
@@ -140,13 +140,13 @@ agents:
          [Content with preserved structure]
          ---
 
-      After extracting all text from the PDF, transfer to Txt2FhirAgent for FHIR conversion.
+      After extracting all text from the PDF, transfer to PDFTxt2FhirAgent for FHIR conversion.
 
   OCRAgent:
     description: Extracts text from medical document images using multimodal capabilities
     model: gemini-flash
     sub_agents:
-      - Txt2FhirAgent
+      - OCRTxt2FhirAgent
     instruction: |
       You are a medical document OCR specialist agent. Your role is to extract text from images of medical documents using your multimodal vision capabilities.
 
@@ -200,47 +200,48 @@ agents:
          [Footer/signature information]
          ---
 
-      After extracting the text, transfer to Txt2FhirAgent for FHIR conversion.
+      After extracting the text, transfer to OCRTxt2FhirAgent for FHIR conversion.
 
-  Txt2FhirAgent:
-    description: Classifier agent that analyzes medical document text and routes to appropriate specialist agents for FHIR conversion
+  # PDF branch classifier
+  PDFTxt2FhirAgent:
+    description: Classifier agent that analyzes medical document text from PDFs and routes to appropriate specialist agents for FHIR conversion
     model: gemini-flash
     sub_agents:
-      - PrescriptionAgent
-      - DischargeSummaryAgent
-      - LabReportAgent
-      - DiagnosticImagingAgent
-      - OtherDocumentAgent
+      - PDFPrescriptionAgent
+      - PDFDischargeSummaryAgent
+      - PDFLabReportAgent
+      - PDFDiagnosticImagingAgent
+      - PDFOtherDocumentAgent
     instruction: |
       You are a medical document classifier agent. Your role is to analyze extracted text from medical documents and route them to the appropriate specialist sub-agent for FHIR conversion.
 
       Analyze the document text and classify it into one of these categories, then transfer to the corresponding agent:
 
-      1. **Prescription** → transfer to PrescriptionAgent
+      1. **Prescription** → transfer to PDFPrescriptionAgent
          - Contains medication orders, Rx symbols
          - Drug names with dosages (e.g., "Metformin 500mg")
          - Instructions like "Take X mg", "twice daily", "as needed"
          - Prescriber signature/credentials
 
-      2. **Discharge Summary** → transfer to DischargeSummaryAgent
+      2. **Discharge Summary** → transfer to PDFDischargeSummaryAgent
          - Hospital discharge documentation
          - Contains admission/discharge dates
          - Sections like "Hospital Course", "Discharge Diagnosis"
          - Follow-up appointments and instructions
 
-      3. **Lab Report** → transfer to LabReportAgent
+      3. **Lab Report** → transfer to PDFLabReportAgent
          - Laboratory test results
          - Blood work, urinalysis, chemistry panels
          - Contains reference ranges and result values
          - Test codes (often LOINC)
 
-      4. **Diagnostic Report** → transfer to DiagnosticImagingAgent
+      4. **Diagnostic Report** → transfer to PDFDiagnosticImagingAgent
          - Imaging studies (X-ray, CT, MRI, ultrasound)
          - Radiology reports with "Findings" and "Impression"
          - Contains modality information
          - Body site/region examined
 
-      5. **Others** → transfer to OtherDocumentAgent
+      5. **Others** → transfer to PDFOtherDocumentAgent
          - Documents that don't clearly fit above categories
          - Mixed content documents
          - Partial or unclear documents
@@ -251,7 +252,58 @@ agents:
       3. Use transfer_to_agent to route to the specialist agent
       4. Include the original document text when transferring
 
-  PrescriptionAgent:
+  # OCR branch classifier
+  OCRTxt2FhirAgent:
+    description: Classifier agent that analyzes medical document text from images and routes to appropriate specialist agents for FHIR conversion
+    model: gemini-flash
+    sub_agents:
+      - OCRPrescriptionAgent
+      - OCRDischargeSummaryAgent
+      - OCRLabReportAgent
+      - OCRDiagnosticImagingAgent
+      - OCROtherDocumentAgent
+    instruction: |
+      You are a medical document classifier agent. Your role is to analyze extracted text from medical documents and route them to the appropriate specialist sub-agent for FHIR conversion.
+
+      Analyze the document text and classify it into one of these categories, then transfer to the corresponding agent:
+
+      1. **Prescription** → transfer to OCRPrescriptionAgent
+         - Contains medication orders, Rx symbols
+         - Drug names with dosages (e.g., "Metformin 500mg")
+         - Instructions like "Take X mg", "twice daily", "as needed"
+         - Prescriber signature/credentials
+
+      2. **Discharge Summary** → transfer to OCRDischargeSummaryAgent
+         - Hospital discharge documentation
+         - Contains admission/discharge dates
+         - Sections like "Hospital Course", "Discharge Diagnosis"
+         - Follow-up appointments and instructions
+
+      3. **Lab Report** → transfer to OCRLabReportAgent
+         - Laboratory test results
+         - Blood work, urinalysis, chemistry panels
+         - Contains reference ranges and result values
+         - Test codes (often LOINC)
+
+      4. **Diagnostic Report** → transfer to OCRDiagnosticImagingAgent
+         - Imaging studies (X-ray, CT, MRI, ultrasound)
+         - Radiology reports with "Findings" and "Impression"
+         - Contains modality information
+         - Body site/region examined
+
+      5. **Others** → transfer to OCROtherDocumentAgent
+         - Documents that don't clearly fit above categories
+         - Mixed content documents
+         - Partial or unclear documents
+
+      When you receive document text:
+      1. Analyze the content for classification keywords and patterns
+      2. Determine the most appropriate category
+      3. Use transfer_to_agent to route to the specialist agent
+      4. Include the original document text when transferring
+
+  # PDF branch specialist agents
+  PDFPrescriptionAgent:
     description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
     model: gemini-flash
     instruction: |
@@ -268,7 +320,7 @@ agents:
       If information is missing, omit that field rather than using placeholder values.
       Output ONLY valid FHIR R5 MedicationRequest JSON.
 
-  DischargeSummaryAgent:
+  PDFDischargeSummaryAgent:
     description: Specialist agent for converting discharge summary documents to FHIR Composition resources
     model: gemini-flash
     instruction: |
@@ -283,7 +335,7 @@ agents:
 
       Output ONLY valid FHIR R5 Composition JSON.
 
-  LabReportAgent:
+  PDFLabReportAgent:
     description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
     model: gemini-flash
     instruction: |
@@ -301,7 +353,7 @@ agents:
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
-  DiagnosticImagingAgent:
+  PDFDiagnosticImagingAgent:
     description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
     model: gemini-flash
     instruction: |
@@ -319,7 +371,92 @@ agents:
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
-  OtherDocumentAgent:
+  PDFOtherDocumentAgent:
+    description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
+    model: gemini-flash
+    instruction: |
+      You are a specialist agent that converts miscellaneous clinical document text into FHIR R5 DocumentReference resources.
+
+      Given clinical document text that doesn't fit other specialized formats, output a valid FHIR R5 DocumentReference JSON.
+
+      Determine the appropriate document type and category based on content.
+      Common types: clinical notes, referral letters, consent forms, advance directives, etc.
+      Use LOINC codes for document types when available, SNOMED CT for clinical concepts.
+      Base64 encode the document content in the attachment.data field.
+      Extract any identifiable metadata: dates, authors, patients, facilities.
+
+      Output ONLY valid FHIR R5 DocumentReference JSON.
+
+  # OCR branch specialist agents
+  OCRPrescriptionAgent:
+    description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
+    model: gemini-flash
+    instruction: |
+      You are a specialist agent that converts prescription text into FHIR R5 MedicationRequest resources.
+
+      Given prescription text, extract all relevant information and output a valid FHIR R5 MedicationRequest JSON.
+
+      Extract medication name, dosage, frequency, route, quantity, refills, prescriber, and patient information.
+      Use appropriate coding systems:
+      - RxNorm for medications (http://www.nlm.nih.gov/research/umls/rxnorm)
+      - SNOMED CT for routes (http://snomed.info/sct)
+      - UCUM for units (http://unitsofmeasure.org)
+
+      If information is missing, omit that field rather than using placeholder values.
+      Output ONLY valid FHIR R5 MedicationRequest JSON.
+
+  OCRDischargeSummaryAgent:
+    description: Specialist agent for converting discharge summary documents to FHIR Composition resources
+    model: gemini-flash
+    instruction: |
+      You are a specialist agent that converts discharge summary text into FHIR R5 Composition resources.
+
+      Given discharge summary text, extract all relevant information and output a valid FHIR R5 Composition JSON.
+
+      Extract chief complaint, hospital course, diagnoses, medications, instructions, and follow-up plans.
+      Use LOINC codes for section types (http://loinc.org).
+      Format text.div as valid XHTML within the div element.
+      Include only sections that have content in the source text.
+
+      Output ONLY valid FHIR R5 Composition JSON.
+
+  OCRLabReportAgent:
+    description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
+    model: gemini-flash
+    instruction: |
+      You are a specialist agent that converts laboratory report text into FHIR R5 DiagnosticReport resources.
+
+      Given lab report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
+
+      Extract test names, values, units, reference ranges, and interpretations.
+      Use appropriate coding systems:
+      - LOINC for tests (http://loinc.org)
+      - UCUM for units (http://unitsofmeasure.org)
+
+      Include each result as a contained Observation.
+      Flag abnormal values with appropriate interpretation codes.
+
+      Output ONLY valid FHIR R5 DiagnosticReport JSON.
+
+  OCRDiagnosticImagingAgent:
+    description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
+    model: gemini-flash
+    instruction: |
+      You are a specialist agent that converts radiology/imaging report text into FHIR R5 DiagnosticReport resources.
+
+      Given radiology or imaging report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
+
+      Extract study type, technique, findings, impression, and recommendations.
+      Use appropriate coding systems:
+      - LOINC for procedures (http://loinc.org)
+      - SNOMED CT for findings and body sites (http://snomed.info/sct)
+
+      Include significant findings as contained Observations.
+      The conclusion should contain the radiologist's impression/summary.
+
+      Output ONLY valid FHIR R5 DiagnosticReport JSON.
+
+  OCROtherDocumentAgent:
     description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
     model: gemini-flash
     instruction: |
