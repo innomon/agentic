@@ -10,9 +10,46 @@ import (
 )
 
 type RawConfig struct {
-	Models map[string]*yaml.Node `yaml:"models"`
-	Agents map[string]*yaml.Node `yaml:"agents"`
-	Tools  map[string]*yaml.Node `yaml:"tools"`
+	Models map[string]*yaml.Node
+	Agents map[string]*yaml.Node
+	Tools  map[string]*yaml.Node
+}
+
+func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
+	r.Models = make(map[string]*yaml.Node)
+	r.Agents = make(map[string]*yaml.Node)
+	r.Tools = make(map[string]*yaml.Node)
+
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("expected mapping node")
+	}
+
+	for i := 0; i < len(node.Content); i += 2 {
+		key := node.Content[i].Value
+		val := node.Content[i+1]
+
+		switch key {
+		case "models":
+			if val.Kind == yaml.MappingNode {
+				for j := 0; j < len(val.Content); j += 2 {
+					r.Models[val.Content[j].Value] = val.Content[j+1]
+				}
+			}
+		case "agents":
+			if val.Kind == yaml.MappingNode {
+				for j := 0; j < len(val.Content); j += 2 {
+					r.Agents[val.Content[j].Value] = val.Content[j+1]
+				}
+			}
+		case "tools":
+			if val.Kind == yaml.MappingNode {
+				for j := 0; j < len(val.Content); j += 2 {
+					r.Tools[val.Content[j].Value] = val.Content[j+1]
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type ModelEntry struct {
