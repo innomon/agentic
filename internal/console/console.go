@@ -3,12 +3,14 @@ package console
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"
@@ -44,15 +46,18 @@ func (l *Launcher) Keyword() string {
 	return "console"
 }
 
-// CommandLineSyntax returns usage documentation.
-func (l *Launcher) CommandLineSyntax() string {
-	return `Console mode with file attachment support.
+var help = `Console mode with file attachment support.
 
 Usage: ./med-agent console [options]
 
 Attach files using @/path/to/file syntax:
   User -> Create FHIR from this lab report @./document.pdf
   User -> Extract prescription @./prescription.png @./notes.txt
+
+Commands:
+  /help                 Show this help message
+  /save [filename]      Save session to JSON file (default: session_<timestamp>.json)
+  /exit, /quit          Exit the console
 
 Supported file types:
   PDF:    .pdf
@@ -62,6 +67,10 @@ Supported file types:
 Options:
   --streaming_mode=sse  Streaming mode (none|sse)
 `
+
+// CommandLineSyntax returns usage documentation.
+func (l *Launcher) CommandLineSyntax() string {
+	return help
 }
 
 // SimpleDescription returns a short description.
@@ -81,6 +90,24 @@ func (l *Launcher) Parse(args []string) ([]string, error) {
 	l.config.streamingMode = agent.StreamingMode(mode)
 	return l.flags.Args(), nil
 }
+
+// consoleContext holds session state for commands
+type consoleContext struct {
+	ctx            context.Context
+	sessionService session.Service
+	session        session.Session
+	appName        string
+	userID         string
+}
+
+// commandResult represents the result of a command
+type commandResult struct {
+	output string
+	exit   bool
+}
+
+// command handler type
+type commandHandler func(cc *consoleContext, args string) (*commandResult, error)
 
 // Run executes the console REPL.
 func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
@@ -115,12 +142,29 @@ func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 		return fmt.Errorf("failed to create runner: %w", err)
 	}
 
+	// Console context for commands
+	cc := &consoleContext{
+		ctx:            ctx,
+		sessionService: sessionService,
+		session:        sess,
+		appName:        appName,
+		userID:         userID,
+	}
+
+	// Command registry
+	commands := map[string]commandHandler{
+		"help": cmdHelp,
+		"save": cmdSave,
+		"exit": cmdExit,
+		"quit": cmdExit,
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 	filePattern := regexp.MustCompile(`@([^\s]+)`)
 
 	fmt.Println("MedAgent Console (attach files with @/path/to/file syntax)")
 	fmt.Println("Example: Create FHIR from this @./labtest.pdf")
-	fmt.Println("Type 'exit' or 'quit' to exit.\n")
+	fmt.Println("Type '/help' for commands, '/exit' to quit.\n")
 
 	for {
 		fmt.Print("User -> ")
@@ -133,9 +177,35 @@ func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 		if input == "" {
 			continue
 		}
-		if input == "exit" || input == "quit" {
-			fmt.Println("Goodbye!")
-			return nil
+
+		// Handle commands
+		if strings.HasPrefix(input, "/") {
+			cmdLine := input[1:]
+			parts := strings.SplitN(cmdLine, " ", 2)
+			cmdName := parts[0]
+			cmdArgs := ""
+			if len(parts) > 1 {
+				cmdArgs = strings.TrimSpace(parts[1])
+			}
+
+			handler, ok := commands[cmdName]
+			if !ok {
+				fmt.Printf("Unknown command: /%s (type /help for commands)\n", cmdName)
+				continue
+			}
+
+			result, err := handler(cc, cmdArgs)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			if result.output != "" {
+				fmt.Println(result.output)
+			}
+			if result.exit {
+				return nil
+			}
+			continue
 		}
 
 		userMsg, err := parseInput(input, filePattern)
@@ -262,4 +332,155 @@ func getMIMEType(path string) string {
 		return t
 	}
 	return "application/octet-stream"
+}
+
+// Command handlers
+
+func cmdHelp(_ *consoleContext, _ string) (*commandResult, error) {
+	return &commandResult{output: help}, nil
+}
+
+func cmdExit(_ *consoleContext, _ string) (*commandResult, error) {
+	return &commandResult{output: "Goodbye!", exit: true}, nil
+}
+
+func cmdSave(cc *consoleContext, args string) (*commandResult, error) {
+	// Get session with events
+	resp, err := cc.sessionService.Get(cc.ctx, &session.GetRequest{
+		AppName:   cc.appName,
+		UserID:    cc.userID,
+		SessionID: cc.session.ID(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Determine filename
+	filename := args
+	if filename == "" {
+		filename = fmt.Sprintf("session_%s.json", time.Now().Format("20060102_150405"))
+	}
+	if !strings.HasSuffix(filename, ".json") {
+		filename += ".json"
+	}
+
+	// Build session export structure
+	export := buildSessionExport(resp.Session)
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(export, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal session: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return &commandResult{
+		output: fmt.Sprintf("Session saved to %s (%d bytes)", filename, len(data)),
+	}, nil
+}
+
+// SessionExport represents the exported session format
+type SessionExport struct {
+	ID        string         `json:"id"`
+	AppName   string         `json:"appName"`
+	UserID    string         `json:"userID"`
+	CreatedAt time.Time      `json:"createdAt"`
+	Events    []EventExport  `json:"events"`
+	State     map[string]any `json:"state,omitempty"`
+}
+
+// EventExport represents an exported event
+type EventExport struct {
+	ID           string    `json:"id"`
+	Timestamp    time.Time `json:"timestamp"`
+	Author       string    `json:"author"`
+	Role         string    `json:"role"`
+	Content      []PartExport `json:"content,omitempty"`
+	FunctionCall *FunctionCallExport `json:"functionCall,omitempty"`
+	FunctionResponse *FunctionResponseExport `json:"functionResponse,omitempty"`
+}
+
+// PartExport represents an exported content part
+type PartExport struct {
+	Text     string `json:"text,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+	DataSize int    `json:"dataSize,omitempty"` // Size of binary data (not exported)
+}
+
+// FunctionCallExport represents an exported function call
+type FunctionCallExport struct {
+	Name string         `json:"name"`
+	Args map[string]any `json:"args,omitempty"`
+}
+
+// FunctionResponseExport represents an exported function response
+type FunctionResponseExport struct {
+	Name   string `json:"name"`
+	Result any    `json:"result,omitempty"`
+}
+
+func buildSessionExport(sess session.Session) *SessionExport {
+	export := &SessionExport{
+		ID:        sess.ID(),
+		AppName:   sess.AppName(),
+		UserID:    sess.UserID(),
+		CreatedAt: time.Now(),
+		Events:    []EventExport{},
+		State:     make(map[string]any),
+	}
+
+	// Export state
+	if sess.State() != nil {
+		for k, v := range sess.State().All() {
+			export.State[k] = v
+		}
+	}
+
+	// Export events
+	if sess.Events() != nil {
+		for event := range sess.Events().All() {
+			eventExport := EventExport{
+				ID:        event.ID,
+				Timestamp: event.Timestamp,
+				Author:    event.Author,
+			}
+
+			if event.Content != nil {
+				eventExport.Role = string(event.Content.Role)
+				for _, part := range event.Content.Parts {
+					pe := PartExport{}
+					if part.Text != "" {
+						pe.Text = part.Text
+					}
+					if part.InlineData != nil {
+						pe.MimeType = part.InlineData.MIMEType
+						pe.DataSize = len(part.InlineData.Data)
+					}
+					if part.FunctionCall != nil {
+						eventExport.FunctionCall = &FunctionCallExport{
+							Name: part.FunctionCall.Name,
+							Args: part.FunctionCall.Args,
+						}
+					}
+					if part.FunctionResponse != nil {
+						eventExport.FunctionResponse = &FunctionResponseExport{
+							Name:   part.FunctionResponse.Name,
+							Result: part.FunctionResponse.Response,
+						}
+					}
+					if pe.Text != "" || pe.MimeType != "" {
+						eventExport.Content = append(eventExport.Content, pe)
+					}
+				}
+			}
+
+			export.Events = append(export.Events, eventExport)
+		}
+	}
+
+	return export
 }
