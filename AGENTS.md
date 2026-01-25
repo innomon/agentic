@@ -154,11 +154,26 @@ Models support the following configuration fields in `config/config.yaml`:
 ```yaml
 models:
   my-model:
-    provider: gemini          # Required: gemini or openai
+    provider: gemini          # Required: gemini, openai, or ollama
     model_id: gemini-2.0-flash # Required: provider-specific model ID
     default: true             # Optional: set as default model
     api_key: ${API_KEY}       # Optional: API key (uses env var if omitted)
     backend: vertexai         # Optional (Gemini): gemini or vertexai
     project: my-gcp-project   # Optional (Vertex AI): GCP project ID
     location: us-central1     # Optional (Vertex AI): GCP region
+
+  # Ollama local model example
+  ollama-llama:
+    provider: ollama
+    model_id: llama3.2        # Model name in Ollama
+    base_url: http://localhost:11434/v1  # Required for Ollama
 ```
+
+### Ollama Provider
+
+The `ollama` provider uses the official OpenAI Go SDK (`github.com/openai/openai-go/v3`) with a custom base URL to connect to Ollama's OpenAI-compatible API.
+
+Required fields:
+- `provider: ollama`
+- `model_id`: The model name as shown in `ollama list`
+- `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)

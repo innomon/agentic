@@ -58,7 +58,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 ## Prerequisites
 
 - Go 1.24+
-- Google API Key for Gemini access, or OpenAI API Key for OpenAI models
+- Google API Key for Gemini access, OpenAI API Key for OpenAI models, or Ollama for local models
 
 ## Setup
 
@@ -175,19 +175,44 @@ models:
     backend: vertexai
     project: my-gcp-project
     location: us-central1
+
+  my-ollama-model:
+    provider: ollama
+    model_id: llama3.2
+    base_url: http://localhost:11434/v1
 ```
 
 #### Model Configuration Fields
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | Model provider (`gemini` or `openai`) | Yes |
+| `provider` | Model provider (`gemini`, `openai`, or `ollama`) | Yes |
 | `model_id` | Provider-specific model identifier | Yes |
 | `default` | Set to `true` for default model | No |
 | `api_key` | API key for authentication | No (uses env var) |
 | `backend` | For Gemini: `gemini` (default) or `vertexai` | No |
 | `project` | GCP project ID (required for Vertex AI) | No |
 | `location` | GCP region (required for Vertex AI) | No |
+| `base_url` | Ollama server URL (required for Ollama) | No |
+
+#### Ollama Provider
+
+The `ollama` provider uses the official OpenAI Go SDK with a custom base URL to connect to Ollama's OpenAI-compatible API. This allows running models locally without an API key.
+
+**Required fields for Ollama:**
+- `provider: ollama`
+- `model_id`: The model name as shown in `ollama list` (e.g., `llama3.2`, `mistral`, `codellama`)
+- `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)
+
+**Example:**
+```yaml
+models:
+  local-llama:
+    provider: ollama
+    model_id: llama3.2
+    base_url: http://localhost:11434/v1
+    default: true
+```
 
 ### Adding New Agents
 
@@ -356,6 +381,7 @@ med-agent/
 │   ├── componentreg/           # Generic component registry (Go generics)
 │   │   ├── registry.go         # Core registration with generics
 │   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│   │   ├── ollama.go           # Ollama provider (official OpenAI SDK)
 │   │   └── agents.go           # Built-in agent types (llm, sequential, etc.)
 │   ├── config/
 │   │   └── config.go           # Config loader with schema-based parsing

@@ -47,6 +47,21 @@ func (c *OpenAIConfig) Validate() error {
 	return c.ModelBase.Validate()
 }
 
+type OllamaConfig struct {
+	ModelBase `yaml:",inline"`
+	BaseURL   string `yaml:"base_url"`
+}
+
+func (c *OllamaConfig) Validate() error {
+	if err := c.ModelBase.Validate(); err != nil {
+		return err
+	}
+	if c.BaseURL == "" {
+		return fmt.Errorf("base_url is required for ollama provider")
+	}
+	return nil
+}
+
 func geminiCreator(ctx context.Context, cfg *GeminiConfig) (model.LLM, error) {
 	clientCfg := &genai.ClientConfig{}
 	if cfg.APIKey != "" {
@@ -71,7 +86,12 @@ func openaiCreator(_ context.Context, cfg *OpenAIConfig) (model.LLM, error) {
 	return adkopenai.NewOpenAIModelWithAPIKey(cfg.ModelID, cfg.APIKey), nil
 }
 
+func ollamaCreator(_ context.Context, cfg *OllamaConfig) (model.LLM, error) {
+	return NewOllamaModel(cfg.ModelID, cfg.BaseURL), nil
+}
+
 func init() {
 	RegisterModelProvider("gemini", geminiCreator)
 	RegisterModelProvider("openai", openaiCreator)
+	RegisterModelProvider("ollama", ollamaCreator)
 }

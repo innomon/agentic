@@ -3,12 +3,19 @@ module github.com/innomon/med-agent
 go 1.24.9
 
 require (
+	github.com/openai/openai-go/v3 v3.16.0
 	google.golang.org/adk v0.2.0
 	google.golang.org/genai v1.36.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/sashabaranov/go-openai v1.41.2 // indirect
+require (
+	github.com/sashabaranov/go-openai v1.41.2 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
+)
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
