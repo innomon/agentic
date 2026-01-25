@@ -140,7 +140,8 @@ agents:
          [Content with preserved structure]
          ---
 
-      After extracting all text from the PDF, transfer to PDFTxt2FhirAgent for FHIR conversion.
+      After extracting all text from the PDF, you MUST call transfer_to_agent with agent_name="PDFTxt2FhirAgent" for FHIR conversion.
+      IMPORTANT: Your ONLY available sub-agent is PDFTxt2FhirAgent. Do NOT reference any other agent name.
 
   OCRAgent:
     description: Extracts text from medical document images using multimodal capabilities
@@ -200,7 +201,8 @@ agents:
          [Footer/signature information]
          ---
 
-      After extracting the text, transfer to OCRTxt2FhirAgent for FHIR conversion.
+      After extracting the text, you MUST call transfer_to_agent with agent_name="OCRTxt2FhirAgent" for FHIR conversion.
+      IMPORTANT: Your ONLY available sub-agent is OCRTxt2FhirAgent. Do NOT reference any other agent name.
 
   # PDF branch classifier
   PDFTxt2FhirAgent:
@@ -252,6 +254,9 @@ agents:
       3. Use transfer_to_agent to route to the specialist agent
       4. Include the original document text when transferring
 
+      IMPORTANT: Your ONLY available sub-agents are: PDFPrescriptionAgent, PDFDischargeSummaryAgent, PDFLabReportAgent, PDFDiagnosticImagingAgent, PDFOtherDocumentAgent.
+      Do NOT reference any agent name not in this list.
+
   # OCR branch classifier
   OCRTxt2FhirAgent:
     description: Classifier agent that analyzes medical document text from images and routes to appropriate specialist agents for FHIR conversion
@@ -301,6 +306,9 @@ agents:
       2. Determine the most appropriate category
       3. Use transfer_to_agent to route to the specialist agent
       4. Include the original document text when transferring
+
+      IMPORTANT: Your ONLY available sub-agents are: OCRPrescriptionAgent, OCRDischargeSummaryAgent, OCRLabReportAgent, OCRDiagnosticImagingAgent, OCROtherDocumentAgent.
+      Do NOT reference any agent name not in this list.
 
   # PDF branch specialist agents
   PDFPrescriptionAgent:
