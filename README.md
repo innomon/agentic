@@ -210,9 +210,51 @@ agents:
 |-------|-------------|----------|
 | `type` | Agent type (default: `llm`) | No |
 | `description` | Agent description for routing | Yes |
-| `model` | Model name from models config | Yes |
+| `model` | Model name from models config | Yes (for `llm`) |
 | `sub_agents` | List of sub-agent names | No |
-| `instruction` | System prompt/instructions | Yes |
+| `instruction` | System prompt/instructions | Yes (for `llm`) |
+| `max_iterations` | Loop iterations (0 = until escalation) | No (for `loop`) |
+
+#### Built-in Agent Types
+
+| Type | Description |
+|------|-------------|
+| `llm` | Standard LLM agent (default) |
+| `sequential` | Executes sub-agents once in order |
+| `parallel` | Executes sub-agents concurrently |
+| `loop` | Repeatedly executes sub-agents |
+
+#### Workflow Agent Examples
+
+```yaml
+agents:
+  # Sequential workflow - runs agents in strict order
+  ProcessingPipeline:
+    type: sequential
+    description: Process documents in stages
+    sub_agents:
+      - ExtractAgent
+      - TransformAgent
+      - ValidateAgent
+
+  # Parallel workflow - runs agents concurrently
+  MultiAnalysis:
+    type: parallel
+    description: Run multiple analyses simultaneously
+    sub_agents:
+      - SentimentAgent
+      - EntityAgent
+      - SummaryAgent
+
+  # Loop workflow - iterative refinement
+  RefineLoop:
+    type: loop
+    description: Iteratively refine output
+    max_iterations: 3  # 0 = run until escalation
+    sub_agents:
+      - DraftAgent
+      - ReviewAgent
+```
 
 ### Custom Agent Types
 

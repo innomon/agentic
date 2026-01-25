@@ -8,6 +8,9 @@ import (
 	"github.com/innomon/med-agent/internal/config"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
+	"google.golang.org/adk/agent/workflowagents/loopagent"
+	"google.golang.org/adk/agent/workflowagents/parallelagent"
+	"google.golang.org/adk/agent/workflowagents/sequentialagent"
 )
 
 type AgentCreator func(ctx context.Context, cfg *config.AgentConfig, models *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error)
@@ -25,6 +28,9 @@ func RegisterAgentType(typeName string, creator AgentCreator) {
 
 func init() {
 	RegisterAgentType("llm", createLLMAgent)
+	RegisterAgentType("sequential", createSequentialAgent)
+	RegisterAgentType("parallel", createParallelAgent)
+	RegisterAgentType("loop", createLoopAgent)
 }
 
 func createLLMAgent(ctx context.Context, cfg *config.AgentConfig, models *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
@@ -39,6 +45,37 @@ func createLLMAgent(ctx context.Context, cfg *config.AgentConfig, models *ModelR
 		Model:       m,
 		Instruction: cfg.Instruction,
 		SubAgents:   subAgents,
+	})
+}
+
+func createSequentialAgent(_ context.Context, cfg *config.AgentConfig, _ *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+	return sequentialagent.New(sequentialagent.Config{
+		AgentConfig: agent.Config{
+			Name:        cfg.Name,
+			Description: cfg.Description,
+			SubAgents:   subAgents,
+		},
+	})
+}
+
+func createParallelAgent(_ context.Context, cfg *config.AgentConfig, _ *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+	return parallelagent.New(parallelagent.Config{
+		AgentConfig: agent.Config{
+			Name:        cfg.Name,
+			Description: cfg.Description,
+			SubAgents:   subAgents,
+		},
+	})
+}
+
+func createLoopAgent(_ context.Context, cfg *config.AgentConfig, _ *ModelRegistry, subAgents []agent.Agent) (agent.Agent, error) {
+	return loopagent.New(loopagent.Config{
+		AgentConfig: agent.Config{
+			Name:        cfg.Name,
+			Description: cfg.Description,
+			SubAgents:   subAgents,
+		},
+		MaxIterations: cfg.MaxIterations,
 	})
 }
 

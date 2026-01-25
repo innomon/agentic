@@ -24,12 +24,13 @@ type ModelConfig struct {
 }
 
 type AgentConfig struct {
-	Name        string   `yaml:"-"`
-	Type        string   `yaml:"type"`
-	Description string   `yaml:"description"`
-	Model       string   `yaml:"model"`
-	SubAgents   []string `yaml:"sub_agents"`
-	Instruction string   `yaml:"instruction"`
+	Name          string   `yaml:"-"`
+	Type          string   `yaml:"type"`
+	Description   string   `yaml:"description"`
+	Model         string   `yaml:"model"`
+	SubAgents     []string `yaml:"sub_agents"`
+	Instruction   string   `yaml:"instruction"`
+	MaxIterations uint     `yaml:"max_iterations"`
 }
 
 func Load(path string) (*Config, error) {

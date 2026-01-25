@@ -78,6 +78,9 @@ func init() {
 
 Built-in types:
 - `llm` (default) - Standard LLM agent via `llmagent.New()`
+- `sequential` - Executes sub-agents once in order via `sequentialagent.New()`
+- `parallel` - Executes sub-agents concurrently via `parallelagent.New()`
+- `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
 
 Specify type in config:
 ```yaml
@@ -85,6 +88,20 @@ agents:
   MyAgent:
     type: myType  # omit for default "llm"
     description: "..."
+
+  MyWorkflow:
+    type: sequential
+    description: "Run agents in order"
+    sub_agents:
+      - Agent1
+      - Agent2
+
+  MyLoop:
+    type: loop
+    description: "Iterative refinement"
+    max_iterations: 3  # 0 = run until escalation
+    sub_agents:
+      - RefineAgent
 ```
 
 ## FHIR Coding Systems

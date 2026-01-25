@@ -1,5 +1,11 @@
 # MedAgent Configuration
 # Model and Agent Registry Configuration
+#
+# Agent Types:
+#   - llm (default): Standard LLM agent with model and instruction
+#   - sequential: Executes sub-agents once in order
+#   - parallel: Executes sub-agents concurrently
+#   - loop: Repeatedly executes sub-agents (use max_iterations, 0 = until escalation)
 
 models:
   gemini-flash:
@@ -13,7 +19,7 @@ models:
 
 agents:
   MedAgent:
-    type: llm  # optional, defaults to "llm" - custom types can be registered via registry.RegisterAgentType()
+    # type: llm  # optional, defaults to "llm"
     description: Root medical agent that routes document processing requests to appropriate extraction agents
     model: gemini-flash
     sub_agents:
