@@ -95,7 +95,7 @@ Interactive terminal session for testing:
 Browser-based interface with file upload support:
 
 ```bash
-./med-agent web
+./med-agent web api webui
 ```
 
 Open http://localhost:8080 in your browser.

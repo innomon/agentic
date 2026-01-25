@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 
 	_ "github.com/innomon/med-agent/internal/componentreg" // register model providers and agent types
 	"github.com/innomon/med-agent/internal/config"
@@ -16,10 +17,23 @@ import (
 
 func main() {
 	ctx := context.Background()
-
-	cfg, err := config.LoadDefault()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	var cfg *config.Config
+	var err error
+	var largs = 1
+	if len(os.Args) > 1 {
+		// if args 1 ends with .ym
+		if strings.HasSuffix(os.Args[1], ".yml") || strings.HasSuffix(os.Args[1], ".yaml") {
+			cfg, err = config.Load(os.Args[1])
+			if err != nil {
+				log.Fatalf("Failed to load config: %v", err)
+			}
+			largs = 2
+		}
+	} else {
+		cfg, err = config.LoadDefault()
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
 	}
 
 	modelRegistry := registry.NewModelRegistry(cfg)
@@ -36,7 +50,8 @@ func main() {
 	}
 
 	l := full.NewLauncher()
-	if err := l.Execute(ctx, launcherConfig, os.Args[1:]); err != nil {
+
+	if err := l.Execute(ctx, launcherConfig, os.Args[largs:]); err != nil {
 		log.Fatalf("Launcher error: %v\n\n%s", err, l.CommandLineSyntax())
 	}
 }
