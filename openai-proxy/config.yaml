@@ -1,0 +1,18 @@
+# OpenAI Proxy Configuration
+# Proxies OpenAI-compatible API requests to ADK endpoints
+
+proxy:
+  # Listen address for the proxy server
+  listen: ":9080"
+
+  # ADK backend configuration
+  adk:
+    # Base URL of the ADK server
+    endpoint: http://localhost:8080
+    # ADK app name to route requests to
+    app_name: MedAgent
+
+  # Default values for requests
+  defaults:
+    # Default user ID when not specified in request
+    user_id: openai-proxy-user

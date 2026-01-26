@@ -217,6 +217,100 @@ Common Options:
   --help    Show help message
 ```
 
+### OpenAI-Compatible API (Proxy)
+
+MedAgent includes an OpenAI-compatible proxy server that allows integration with tools expecting the OpenAI API format.
+
+#### Build and Run
+
+```bash
+cd openai-proxy
+go build -o openai-proxy .
+./openai-proxy -config config.yaml
+```
+
+#### Configuration
+
+Edit `openai-proxy/config.yaml`:
+
+```yaml
+proxy:
+  listen: ":9080"           # Proxy listen address
+  adk:
+    endpoint: http://localhost:8080  # ADK server URL
+    app_name: MedAgent              # Agent app name
+  defaults:
+    user_id: openai-proxy-user      # Default user ID
+```
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Chat completions (streaming & non-streaming) |
+| `/v1/models` | GET | List available models |
+| `/health` | GET | Health check |
+
+#### Example Usage
+
+**Chat completion (streaming):**
+```bash
+curl -X POST http://localhost:9080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "MedAgent",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "stream": true
+  }'
+```
+
+**Chat completion (non-streaming):**
+```bash
+curl -X POST http://localhost:9080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "MedAgent",
+    "messages": [{"role": "user", "content": "What is FHIR?"}],
+    "stream": false
+  }'
+```
+
+**With image attachment (base64 data URL):**
+```bash
+curl -X POST http://localhost:9080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "MedAgent",
+    "messages": [{
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "Extract prescription from this image"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,'"$(base64 -w0 image.png)"'"}}
+      ]
+    }],
+    "stream": true
+  }'
+```
+
+**Use with OpenAI SDK:**
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:9080/v1",
+    api_key="not-required"  # API key not validated
+)
+
+response = client.chat.completions.create(
+    model="MedAgent",
+    messages=[{"role": "user", "content": "Create FHIR from this lab report"}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content, end="")
+```
+
 ## Configuration
 
 Agents, models, and tools are configured in `config/config.yaml`:
@@ -592,6 +686,9 @@ med-agent/
 │       ├── model.go            # Model registry (lazy loading)
 │       ├── agent.go            # Agent registry (dependency resolution)
 │       └── tool.go             # Tool registry (lazy loading)
+├── openai-proxy/               # OpenAI-compatible API proxy
+│   ├── main.go                 # Proxy server (Ollama-style design)
+│   └── config.yaml             # Proxy configuration
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
