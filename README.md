@@ -9,6 +9,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **Document Classification**: Automatically identifies document types (Prescription, Discharge Summary, Lab Report, Diagnostic Report)
 - **FHIR R5 Output**: Generates compliant FHIR resources with proper coding systems (LOINC, SNOMED CT, RxNorm, UCUM)
 - **Config-Driven**: All agents, models, and tools defined in YAML configuration
+- **Persistent Memory**: Database-backed conversation memory with configurable providers (PostgreSQL, SQLite)
 - **Extensible Tools**: Define custom tools in YAML with Go handlers for agent capabilities
 
 ## Architecture
@@ -313,7 +314,7 @@ for chunk in response:
 
 ## Configuration
 
-Agents, models, and tools are configured in `config/config.yaml`:
+Agents, models, tools, and memory are configured in `config/config.yaml`:
 
 ```yaml
 models:
@@ -325,6 +326,18 @@ models:
   gemini-pro:
     provider: gemini
     model_id: gemini-2.5-pro-preview-06-05
+
+memory:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost/medagent
+  auto_migrate: true
+
+session:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost/medagent
+  auto_migrate: true
 
 agents:
   MedAgent:
@@ -664,6 +677,67 @@ models:
     timeout: 30
 ```
 
+### Session Configuration
+
+Session stores active conversation state. If omitted or set to `provider: inmemory`, in-memory storage is used.
+
+```yaml
+# Database-backed sessions
+session:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost/medagent
+  auto_migrate: true
+
+# Vertex AI sessions
+session:
+  provider: vertexai
+  project: my-gcp-project
+  location: us-central1
+  reasoning_engine: projects/my-project/locations/us-central1/reasoningEngines/12345
+```
+
+#### Session Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | `inmemory` (default), `database`, or `vertexai` | No |
+| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
+| `dsn` | Database connection string | Yes (for `database`) |
+| `auto_migrate` | Auto-create/update schema on startup | No |
+| `project` | GCP project ID | Yes (for `vertexai`) |
+| `location` | GCP region | Yes (for `vertexai`) |
+| `reasoning_engine` | Reasoning Engine resource name | Yes (for `vertexai`) |
+
+### Memory Configuration
+
+Memory stores agent conversation history. If omitted or set to `provider: inmemory`, in-memory storage is used. Set `provider: database` for persistent storage via GORM.
+
+```yaml
+# PostgreSQL
+memory:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost/medagent
+  auto_migrate: true
+
+# SQLite (for development)
+memory:
+  provider: database
+  driver: sqlite
+  dsn: file:memory.db
+  auto_migrate: true
+```
+
+#### Memory Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | `inmemory` (default) or `database` | No |
+| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
+| `dsn` | Database connection string | Yes (for `database`) |
+| `auto_migrate` | Auto-create/update schema on startup | No |
+
 ## Project Structure
 
 ```
@@ -682,6 +756,8 @@ med-agent/
 │   │   └── config.go           # Config loader with schema-based parsing
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
+│   ├── memory/
+│   │   └── mem2db.go           # Database-backed memory service (GORM)
 │   └── registry/
 │       ├── model.go            # Model registry (lazy loading)
 │       ├── agent.go            # Agent registry (dependency resolution)

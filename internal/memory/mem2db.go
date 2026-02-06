@@ -13,10 +13,37 @@ import (
 	"google.golang.org/adk/session"
 	"google.golang.org/genai"
 
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 )
+
+func OpenDatabaseMemoryService(driverName, dsn string, autoMigrate bool) (*DatabaseMemoryService, error) {
+	var dialector gorm.Dialector
+	switch driverName {
+	case "postgres":
+		dialector = postgres.Open(dsn)
+	case "sqlite":
+		dialector = sqlite.Open(dsn)
+	default:
+		return nil, fmt.Errorf("unsupported driver %q (supported: postgres, sqlite)", driverName)
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	svc := NewDatabaseMemoryService(db)
+	if autoMigrate {
+		if err := svc.AutoMigrate(); err != nil {
+			return nil, fmt.Errorf("failed to auto-migrate: %w", err)
+		}
+	}
+	return svc, nil
+}
 
 // storageMemoryEntry corresponds to the 'memory_entries' table.
 type storageMemoryEntry struct {

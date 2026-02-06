@@ -13,13 +13,14 @@ type RawConfig struct {
 	Models map[string]*yaml.Node
 	Agents map[string]*yaml.Node
 	Tools  map[string]*yaml.Node
+	Session *yaml.Node
+	Memory  *yaml.Node
 }
 
 func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 	r.Models = make(map[string]*yaml.Node)
 	r.Agents = make(map[string]*yaml.Node)
 	r.Tools = make(map[string]*yaml.Node)
-
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("expected mapping node")
 	}
@@ -47,6 +48,10 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 					r.Tools[val.Content[j].Value] = val.Content[j+1]
 				}
 			}
+		case "session":
+			r.Session = val
+		case "memory":
+			r.Memory = val
 		}
 	}
 	return nil
@@ -72,10 +77,29 @@ type ToolEntry struct {
 	Config any
 }
 
+type SessionConfig struct {
+	Provider    string `yaml:"provider"`
+	Driver      string `yaml:"driver"`
+	DSN         string `yaml:"dsn"`
+	AutoMigrate bool   `yaml:"auto_migrate"`
+	Project     string `yaml:"project"`
+	Location    string `yaml:"location"`
+	ReasoningEngine string `yaml:"reasoning_engine"`
+}
+
+type MemoryConfig struct {
+	Provider    string `yaml:"provider"`
+	Driver      string `yaml:"driver"`
+	DSN         string `yaml:"dsn"`
+	AutoMigrate bool   `yaml:"auto_migrate"`
+}
+
 type Config struct {
-	Models map[string]ModelEntry
-	Agents map[string]AgentEntry
-	Tools  map[string]ToolEntry
+	Models  map[string]ModelEntry
+	Agents  map[string]AgentEntry
+	Tools   map[string]ToolEntry
+	Session *SessionConfig
+	Memory  *MemoryConfig
 }
 
 func Load(path string) (*Config, error) {
@@ -158,6 +182,22 @@ func parseAndValidate(raw *RawConfig) (*Config, error) {
 		}
 	}
 
+	if raw.Session != nil {
+		var sess SessionConfig
+		if err := raw.Session.Decode(&sess); err != nil {
+			return nil, fmt.Errorf("failed to parse session config: %w", err)
+		}
+		cfg.Session = &sess
+	}
+
+	if raw.Memory != nil {
+		var mem MemoryConfig
+		if err := raw.Memory.Decode(&mem); err != nil {
+			return nil, fmt.Errorf("failed to parse memory config: %w", err)
+		}
+		cfg.Memory = &mem
+	}
+
 	return cfg, nil
 }
 
@@ -225,3 +265,5 @@ func (c *Config) GetTool(name string) (*ToolEntry, error) {
 	}
 	return &tool, nil
 }
+
+

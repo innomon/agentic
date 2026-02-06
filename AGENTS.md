@@ -78,6 +78,8 @@ med-agent/
 │   │   └── config.go           # Config loader with schema-based parsing
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
+│   ├── memory/
+│   │   └── mem2db.go           # Database-backed memory service (GORM)
 │   └── registry/
 │       ├── model.go            # Model registry (lazy loading)
 │       ├── agent.go            # Agent registry (dependency resolution)
@@ -196,6 +198,51 @@ func init() {
     })
 }
 ```
+
+## Session Configuration
+
+Session stores active conversation state. If omitted or set to `inmemory`, in-memory storage is used. Set `provider: database` for persistent storage via GORM, or `provider: vertexai` for Vertex AI.
+
+Configure in `config/config.yaml`:
+
+```yaml
+session:
+  provider: database
+  driver: postgres          # Required: postgres or sqlite
+  dsn: postgres://user:pass@localhost/medagent  # Required: connection string
+  auto_migrate: true        # Optional: auto-create/update tables
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | `inmemory` (default), `database`, or `vertexai` | No |
+| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
+| `dsn` | Database connection string | Yes (for `database`) |
+| `auto_migrate` | Auto-create/update schema on startup | No |
+| `project` | GCP project ID | Yes (for `vertexai`) |
+| `location` | GCP region | Yes (for `vertexai`) |
+| `reasoning_engine` | Reasoning Engine resource name | Yes (for `vertexai`) |
+
+## Memory Configuration
+
+Memory stores agent conversation history. If omitted or set to `inmemory`, in-memory storage is used. Set `provider: database` for persistent storage via GORM.
+
+Configure in `config/config.yaml`:
+
+```yaml
+memory:
+  provider: database
+  driver: postgres          # Required: postgres or sqlite
+  dsn: postgres://user:pass@localhost/medagent  # Required: connection string
+  auto_migrate: true        # Optional: auto-create/update tables
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | `inmemory` (default) or `database` | No |
+| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
+| `dsn` | Database connection string | Yes (for `database`) |
+| `auto_migrate` | Auto-create/update schema on startup | No |
 
 ## FHIR Coding Systems
 
