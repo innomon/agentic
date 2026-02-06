@@ -7,10 +7,13 @@ require (
 	google.golang.org/adk v0.2.0
 	google.golang.org/genai v1.36.0
 	gopkg.in/yaml.v3 v3.0.1
+	gorm.io/gorm v1.31.0
 )
 
 require (
 	github.com/google/jsonschema-go v0.3.0 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/sashabaranov/go-openai v1.41.2 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
