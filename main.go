@@ -47,11 +47,9 @@ func main() {
 		}
 	}
 
-	modelRegistry := registry.NewModelRegistry(cfg)
-	toolRegistry := registry.NewToolRegistry(cfg)
-	agentRegistry := registry.NewAgentRegistry(cfg, modelRegistry, toolRegistry)
+	reg := registry.New(cfg)
 
-	rootAgent, err := agentRegistry.GetRoot(ctx)
+	rootAgent, err := reg.GetRoot(ctx)
 	if err != nil {
 		log.Fatalf("Failed to create root agent: %v", err)
 	}

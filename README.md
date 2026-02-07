@@ -759,9 +759,7 @@ med-agent/
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
 │   └── registry/
-│       ├── model.go            # Model registry (lazy loading)
-│       ├── agent.go            # Agent registry (dependency resolution)
-│       └── tool.go             # Tool registry (lazy loading)
+│       └── registry.go         # Unified registry (models, agents, tools)
 ├── openai-proxy/               # OpenAI-compatible API proxy
 │   ├── main.go                 # Proxy server (Ollama-style design)
 │   └── config.yaml             # Proxy configuration

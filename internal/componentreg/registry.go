@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
-	"sync"
 
+	"github.com/innomon/med-agent/internal/compreg"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
 	"gopkg.in/yaml.v3"
@@ -26,52 +25,17 @@ func strictDecode(node *yaml.Node, out any) error {
 	return dec.Decode(out)
 }
 
-type ModelCreator[T any] func(ctx context.Context, cfg *T) (model.LLM, error)
-
-type modelProviderEntry struct {
-	schema reflect.Type
-	decode func(*yaml.Node) (any, error)
-	create func(context.Context, any) (model.LLM, error)
-}
-
-var (
-	modelProviders   = make(map[string]modelProviderEntry)
-	modelProvidersMu sync.RWMutex
-)
-
-func RegisterModelProvider[T any](name string, creator ModelCreator[T]) {
-	modelProvidersMu.Lock()
-	defer modelProvidersMu.Unlock()
-
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	modelProviders[name] = modelProviderEntry{
-		schema: t,
-		decode: func(n *yaml.Node) (any, error) {
-			cfg := new(T)
-			if err := strictDecode(n, cfg); err != nil {
-				return nil, err
-			}
-			if v, ok := any(cfg).(Validatable); ok {
-				if err := v.Validate(); err != nil {
-					return nil, err
-				}
-			}
-			return cfg, nil
-		},
-		create: func(ctx context.Context, a any) (model.LLM, error) {
-			return creator(ctx, a.(*T))
-		},
+func decodeCfg[T any](n *yaml.Node) (any, error) {
+	cfg := new(T)
+	if err := strictDecode(n, cfg); err != nil {
+		return nil, err
 	}
-}
-
-func GetModelProvider(name string) (decode func(*yaml.Node) (any, error), create func(context.Context, any) (model.LLM, error), ok bool) {
-	modelProvidersMu.RLock()
-	defer modelProvidersMu.RUnlock()
-	e, ok := modelProviders[name]
-	if !ok {
-		return nil, nil, false
+	if v, ok := any(cfg).(Validatable); ok {
+		if err := v.Validate(); err != nil {
+			return nil, err
+		}
 	}
-	return e.decode, e.create, true
+	return cfg, nil
 }
 
 type ModelRegistry interface {
@@ -82,52 +46,36 @@ type ToolRegistry interface {
 	GetMultiple(ctx context.Context, names []string) (any, error)
 }
 
+type ModelEntry struct {
+	Decode func(*yaml.Node) (any, error)
+	Create func(context.Context, any) (model.LLM, error)
+}
+
+type ModelCreator[T any] func(ctx context.Context, cfg *T) (model.LLM, error)
+
+func RegisterModelProvider[T any](name string, creator ModelCreator[T]) {
+	compreg.Set("model:"+name, ModelEntry{
+		Decode: decodeCfg[T],
+		Create: func(ctx context.Context, a any) (model.LLM, error) {
+			return creator(ctx, a.(*T))
+		},
+	})
+}
+
+type AgentEntry struct {
+	Decode func(*yaml.Node) (any, error)
+	Create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
+}
+
 type AgentCreator[T any] func(ctx context.Context, name string, cfg *T, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
 
-type agentTypeEntry struct {
-	schema reflect.Type
-	decode func(*yaml.Node) (any, error)
-	create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
-}
-
-var (
-	agentTypes   = make(map[string]agentTypeEntry)
-	agentTypesMu sync.RWMutex
-)
-
 func RegisterAgentType[T any](typeName string, creator AgentCreator[T]) {
-	agentTypesMu.Lock()
-	defer agentTypesMu.Unlock()
-
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	agentTypes[typeName] = agentTypeEntry{
-		schema: t,
-		decode: func(n *yaml.Node) (any, error) {
-			cfg := new(T)
-			if err := strictDecode(n, cfg); err != nil {
-				return nil, err
-			}
-			if v, ok := any(cfg).(Validatable); ok {
-				if err := v.Validate(); err != nil {
-					return nil, err
-				}
-			}
-			return cfg, nil
-		},
-		create: func(ctx context.Context, name string, a any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+	compreg.Set("agent:"+typeName, AgentEntry{
+		Decode: decodeCfg[T],
+		Create: func(ctx context.Context, name string, a any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 			return creator(ctx, name, a.(*T), models, tools, sub)
 		},
-	}
-}
-
-func GetAgentType(typeName string) (decode func(*yaml.Node) (any, error), create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error), ok bool) {
-	agentTypesMu.RLock()
-	defer agentTypesMu.RUnlock()
-	e, ok := agentTypes[typeName]
-	if !ok {
-		return nil, nil, false
-	}
-	return e.decode, e.create, true
+	})
 }
 
 type ModelDiscriminator struct {
@@ -147,12 +95,12 @@ func DecodeModelConfig(name string, node *yaml.Node) (provider string, cfg any, 
 		return "", nil, fmt.Errorf("model %q missing provider", name)
 	}
 
-	decode, _, ok := GetModelProvider(d.Provider)
+	e, ok := compreg.Lookup[ModelEntry]("model:" + d.Provider)
 	if !ok {
 		return "", nil, fmt.Errorf("model %q: unknown provider %q", name, d.Provider)
 	}
 
-	cfg, err = decode(node)
+	cfg, err = e.Decode(node)
 	if err != nil {
 		return "", nil, fmt.Errorf("model %q: %w", name, err)
 	}
@@ -170,12 +118,12 @@ func DecodeAgentConfig(name string, node *yaml.Node) (typeName string, cfg any, 
 		typeName = "llm"
 	}
 
-	decode, _, ok := GetAgentType(typeName)
+	e, ok := compreg.Lookup[AgentEntry]("agent:" + typeName)
 	if !ok {
 		return "", nil, fmt.Errorf("agent %q: unknown type %q", name, typeName)
 	}
 
-	cfg, err = decode(node)
+	cfg, err = e.Decode(node)
 	if err != nil {
 		return "", nil, fmt.Errorf("agent %q: %w", name, err)
 	}
@@ -184,17 +132,17 @@ func DecodeAgentConfig(name string, node *yaml.Node) (typeName string, cfg any, 
 }
 
 func CreateModel(ctx context.Context, provider string, cfg any) (model.LLM, error) {
-	_, create, ok := GetModelProvider(provider)
+	e, ok := compreg.Lookup[ModelEntry]("model:" + provider)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	return create(ctx, cfg)
+	return e.Create(ctx, cfg)
 }
 
 func CreateAgent(ctx context.Context, typeName, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
-	_, create, ok := GetAgentType(typeName)
+	e, ok := compreg.Lookup[AgentEntry]("agent:" + typeName)
 	if !ok {
 		return nil, fmt.Errorf("unknown agent type %q", typeName)
 	}
-	return create(ctx, name, cfg, models, tools, sub)
+	return e.Create(ctx, name, cfg, models, tools, sub)
 }
