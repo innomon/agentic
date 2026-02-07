@@ -1,4 +1,4 @@
-package componentreg
+package registry
 
 import (
 	"context"

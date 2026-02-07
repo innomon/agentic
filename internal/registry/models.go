@@ -1,4 +1,4 @@
-package componentreg
+package registry
 
 import (
 	"context"
@@ -14,6 +14,10 @@ type ModelBase struct {
 	Provider string `yaml:"provider"`
 	ModelID  string `yaml:"model_id"`
 	Default  bool   `yaml:"default"`
+}
+
+func (b *ModelBase) IsDefault() bool {
+	return b.Default
 }
 
 func (b *ModelBase) Validate() error {

@@ -1,4 +1,4 @@
-package componentreg
+package registry
 
 import (
 	"context"
@@ -25,15 +25,15 @@ type Param struct {
 
 type ToolCreator[T any] func(ctx context.Context, name string, cfg *T) (tool.Tool, error)
 
-type ToolEntry struct {
-	Decode func(*yaml.Node) (any, error)
-	Create func(ctx context.Context, name string, cfg any) (tool.Tool, error)
+type toolFactory struct {
+	decode func(*yaml.Node) (any, error)
+	create func(ctx context.Context, name string, cfg any) (tool.Tool, error)
 }
 
 func RegisterToolType[T any](typeName string, creator ToolCreator[T]) {
-	compreg.Set("tool:"+typeName, ToolEntry{
-		Decode: decodeCfg[T],
-		Create: func(ctx context.Context, name string, a any) (tool.Tool, error) {
+	compreg.Set("tool:"+typeName, toolFactory{
+		decode: decodeCfg[T],
+		create: func(ctx context.Context, name string, a any) (tool.Tool, error) {
 			return creator(ctx, name, a.(*T))
 		},
 	})
@@ -61,12 +61,12 @@ func DecodeToolConfig(name string, node *yaml.Node) (typeName string, cfg any, e
 		typeName = "builtin"
 	}
 
-	e, ok := compreg.Lookup[ToolEntry]("tool:" + typeName)
+	e, ok := compreg.Lookup[toolFactory]("tool:" + typeName)
 	if !ok {
 		return "", nil, fmt.Errorf("tool %q: unknown type %q", name, typeName)
 	}
 
-	cfg, err = e.Decode(node)
+	cfg, err = e.decode(node)
 	if err != nil {
 		return "", nil, fmt.Errorf("tool %q: %w", name, err)
 	}
@@ -74,12 +74,12 @@ func DecodeToolConfig(name string, node *yaml.Node) (typeName string, cfg any, e
 	return typeName, cfg, nil
 }
 
-func CreateTool(ctx context.Context, typeName, name string, cfg any) (tool.Tool, error) {
-	e, ok := compreg.Lookup[ToolEntry]("tool:" + typeName)
+func createTool(ctx context.Context, typeName, name string, cfg any) (tool.Tool, error) {
+	e, ok := compreg.Lookup[toolFactory]("tool:" + typeName)
 	if !ok {
 		return nil, fmt.Errorf("unknown tool type %q", typeName)
 	}
-	return e.Create(ctx, name, cfg)
+	return e.create(ctx, name, cfg)
 }
 
 type BuiltinToolConfig struct {

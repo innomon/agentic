@@ -5,102 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/innomon/med-agent/internal/componentreg"
+	"github.com/innomon/med-agent/internal/registry"
 	"gopkg.in/yaml.v3"
 )
 
-type RawConfig struct {
-	Models map[string]*yaml.Node
-	Agents map[string]*yaml.Node
-	Tools  map[string]*yaml.Node
-	Session *yaml.Node
-	Memory  *yaml.Node
-}
-
-func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
-	r.Models = make(map[string]*yaml.Node)
-	r.Agents = make(map[string]*yaml.Node)
-	r.Tools = make(map[string]*yaml.Node)
-	if node.Kind != yaml.MappingNode {
-		return fmt.Errorf("expected mapping node")
-	}
-
-	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i].Value
-		val := node.Content[i+1]
-
-		switch key {
-		case "models":
-			if val.Kind == yaml.MappingNode {
-				for j := 0; j < len(val.Content); j += 2 {
-					r.Models[val.Content[j].Value] = val.Content[j+1]
-				}
-			}
-		case "agents":
-			if val.Kind == yaml.MappingNode {
-				for j := 0; j < len(val.Content); j += 2 {
-					r.Agents[val.Content[j].Value] = val.Content[j+1]
-				}
-			}
-		case "tools":
-			if val.Kind == yaml.MappingNode {
-				for j := 0; j < len(val.Content); j += 2 {
-					r.Tools[val.Content[j].Value] = val.Content[j+1]
-				}
-			}
-		case "session":
-			r.Session = val
-		case "memory":
-			r.Memory = val
-		}
-	}
-	return nil
-}
-
-type ModelEntry struct {
-	Name     string
-	Provider string
-	Config   any
-}
-
-type AgentEntry struct {
-	Name      string
-	Type      string
-	SubAgents []string
-	Tools     []string
-	Config    any
-}
-
-type ToolEntry struct {
-	Name   string
-	Type   string
-	Config any
-}
-
-type SessionConfig struct {
-	Provider    string `yaml:"provider"`
-	Driver      string `yaml:"driver"`
-	DSN         string `yaml:"dsn"`
-	AutoMigrate bool   `yaml:"auto_migrate"`
-	Project     string `yaml:"project"`
-	Location    string `yaml:"location"`
-	ReasoningEngine string `yaml:"reasoning_engine"`
-}
-
-type MemoryConfig struct {
-	Provider    string `yaml:"provider"`
-	Driver      string `yaml:"driver"`
-	DSN         string `yaml:"dsn"`
-	AutoMigrate bool   `yaml:"auto_migrate"`
-}
-
-type Config struct {
-	Models  map[string]ModelEntry
-	Agents  map[string]AgentEntry
-	Tools   map[string]ToolEntry
-	Session *SessionConfig
-	Memory  *MemoryConfig
-}
+type Config = registry.Config
 
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -108,97 +17,12 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var raw RawConfig
+	var raw registry.RawConfig
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	return parseAndValidate(&raw)
-}
-
-func parseAndValidate(raw *RawConfig) (*Config, error) {
-	cfg := &Config{
-		Models: make(map[string]ModelEntry),
-		Agents: make(map[string]AgentEntry),
-		Tools:  make(map[string]ToolEntry),
-	}
-
-	for name, node := range raw.Models {
-		provider, cfgAny, err := componentreg.DecodeModelConfig(name, node)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Models[name] = ModelEntry{
-			Name:     name,
-			Provider: provider,
-			Config:   cfgAny,
-		}
-	}
-
-	for name, node := range raw.Agents {
-		typeName, cfgAny, err := componentreg.DecodeAgentConfig(name, node)
-		if err != nil {
-			return nil, err
-		}
-
-		var subAgents []string
-		var tools []string
-		if base, ok := cfgAny.(interface{ GetSubAgents() []string }); ok {
-			subAgents = base.GetSubAgents()
-		} else {
-			var d struct {
-				SubAgents []string `yaml:"sub_agents"`
-			}
-			_ = node.Decode(&d)
-			subAgents = d.SubAgents
-		}
-
-		// Extract tools list
-		var td struct {
-			Tools []string `yaml:"tools"`
-		}
-		_ = node.Decode(&td)
-		tools = td.Tools
-
-		cfg.Agents[name] = AgentEntry{
-			Name:      name,
-			Type:      typeName,
-			SubAgents: subAgents,
-			Tools:     tools,
-			Config:    cfgAny,
-		}
-	}
-
-	// Parse tools
-	for name, node := range raw.Tools {
-		typeName, cfgAny, err := componentreg.DecodeToolConfig(name, node)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Tools[name] = ToolEntry{
-			Name:   name,
-			Type:   typeName,
-			Config: cfgAny,
-		}
-	}
-
-	if raw.Session != nil {
-		var sess SessionConfig
-		if err := raw.Session.Decode(&sess); err != nil {
-			return nil, fmt.Errorf("failed to parse session config: %w", err)
-		}
-		cfg.Session = &sess
-	}
-
-	if raw.Memory != nil {
-		var mem MemoryConfig
-		if err := raw.Memory.Decode(&mem); err != nil {
-			return nil, fmt.Errorf("failed to parse memory config: %w", err)
-		}
-		cfg.Memory = &mem
-	}
-
-	return cfg, nil
+	return registry.ParseRaw(&raw)
 }
 
 func LoadDefault() (*Config, error) {
@@ -224,46 +48,3 @@ func LoadDefault() (*Config, error) {
 
 	return nil, fmt.Errorf("config file not found in standard locations")
 }
-
-func (c *Config) GetDefaultModel() (string, ModelEntry, error) {
-	for name, m := range c.Models {
-		if base, ok := m.Config.(*componentreg.GeminiConfig); ok && base.Default {
-			return name, m, nil
-		}
-		if base, ok := m.Config.(*componentreg.OpenAIConfig); ok && base.Default {
-			return name, m, nil
-		}
-	}
-
-	for name, m := range c.Models {
-		return name, m, nil
-	}
-
-	return "", ModelEntry{}, fmt.Errorf("no models configured")
-}
-
-func (c *Config) GetAgent(name string) (*AgentEntry, error) {
-	agent, ok := c.Agents[name]
-	if !ok {
-		return nil, fmt.Errorf("agent %q not found", name)
-	}
-	return &agent, nil
-}
-
-func (c *Config) GetModel(name string) (ModelEntry, error) {
-	model, ok := c.Models[name]
-	if !ok {
-		return ModelEntry{}, fmt.Errorf("model %q not found", name)
-	}
-	return model, nil
-}
-
-func (c *Config) GetTool(name string) (*ToolEntry, error) {
-	tool, ok := c.Tools[name]
-	if !ok {
-		return nil, fmt.Errorf("tool %q not found", name)
-	}
-	return &tool, nil
-}
-
-

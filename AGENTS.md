@@ -68,20 +68,22 @@ med-agent/
 ├── config/
 │   └── config.yaml             # Agent and model configuration
 ├── internal/
-│   ├── componentreg/           # Generic component registry (Go generics)
-│   │   ├── registry.go         # Core registration with generics
-│   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
-│   │   ├── ollama.go           # Ollama provider (official OpenAI SDK)
-│   │   ├── agents.go           # Built-in agent types (llm, sequential, etc.)
-│   │   └── tools.go            # Tools registry and built-in tool types
+│   ├── compreg/
+│   │   └── compreg.go          # Global component register (shared map)
 │   ├── config/
-│   │   └── config.go           # Config loader with schema-based parsing
+│   │   └── config.go           # Config file loader (thin wrapper)
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
-│   └── registry/
-│       └── registry.go         # Unified registry (models, agents, tools)
+│   └── registry/               # Unified registry (config, components, instances)
+│       ├── registry.go         # Instance cache with generic Get[T]
+│       ├── config.go           # Config types and YAML parsing
+│       ├── compreg.go          # Component type registration and factories
+│       ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│       ├── ollama.go           # Ollama provider (official OpenAI SDK)
+│       ├── agents.go           # Built-in agent types (llm, sequential, etc.)
+│       └── tools.go            # Tool type registration and built-in tools
 ├── pkg/
 │   └── fhir/
 │       └── types.go            # FHIR R5 Go type definitions
@@ -120,7 +122,7 @@ agents:
 ```
 
 ```go
-componentreg.RegisterToolHandler("my_tool", func(ctx context.Context, args map[string]any) (any, error) {
+registry.RegisterToolHandler("my_tool", func(ctx context.Context, args map[string]any) (any, error) {
     return result, nil
 })
 ```
@@ -130,11 +132,11 @@ componentreg.RegisterToolHandler("my_tool", func(ctx context.Context, args map[s
 The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
 
 ```go
-import "github.com/innomon/med-agent/internal/componentreg"
+import "github.com/innomon/med-agent/internal/registry"
 
 // Define config struct with custom fields
 type MyAgentConfig struct {
-    componentreg.AgentBase `yaml:",inline"`
+    registry.AgentBase `yaml:",inline"`
     CustomField string `yaml:"custom_field"`
 }
 
@@ -142,7 +144,7 @@ type MyAgentConfig struct {
 func (c *MyAgentConfig) Validate() error { return nil }
 
 func init() {
-    componentreg.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models componentreg.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+    registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
         // cfg is fully typed - access cfg.CustomField directly
         return myCustomAgent, nil
     })
@@ -183,15 +185,15 @@ agents:
 Register model providers with custom config schemas:
 
 ```go
-import "github.com/innomon/med-agent/internal/componentreg"
+import "github.com/innomon/med-agent/internal/registry"
 
 type MyProviderConfig struct {
-    componentreg.ModelBase `yaml:",inline"`
+    registry.ModelBase `yaml:",inline"`
     Endpoint string `yaml:"endpoint"`
 }
 
 func init() {
-    componentreg.RegisterModelProvider("myprovider", func(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
+    registry.RegisterModelProvider("myprovider", func(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
         return createModel(cfg.Endpoint, cfg.ModelID), nil
     })
 }

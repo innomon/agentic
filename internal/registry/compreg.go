@@ -1,4 +1,4 @@
-package componentreg
+package registry
 
 import (
 	"bytes"
@@ -46,33 +46,33 @@ type ToolRegistry interface {
 	GetMultiple(ctx context.Context, names []string) (any, error)
 }
 
-type ModelEntry struct {
-	Decode func(*yaml.Node) (any, error)
-	Create func(context.Context, any) (model.LLM, error)
+type modelFactory struct {
+	decode func(*yaml.Node) (any, error)
+	create func(context.Context, any) (model.LLM, error)
 }
 
 type ModelCreator[T any] func(ctx context.Context, cfg *T) (model.LLM, error)
 
 func RegisterModelProvider[T any](name string, creator ModelCreator[T]) {
-	compreg.Set("model:"+name, ModelEntry{
-		Decode: decodeCfg[T],
-		Create: func(ctx context.Context, a any) (model.LLM, error) {
+	compreg.Set("model:"+name, modelFactory{
+		decode: decodeCfg[T],
+		create: func(ctx context.Context, a any) (model.LLM, error) {
 			return creator(ctx, a.(*T))
 		},
 	})
 }
 
-type AgentEntry struct {
-	Decode func(*yaml.Node) (any, error)
-	Create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
+type agentFactory struct {
+	decode func(*yaml.Node) (any, error)
+	create func(ctx context.Context, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
 }
 
 type AgentCreator[T any] func(ctx context.Context, name string, cfg *T, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error)
 
 func RegisterAgentType[T any](typeName string, creator AgentCreator[T]) {
-	compreg.Set("agent:"+typeName, AgentEntry{
-		Decode: decodeCfg[T],
-		Create: func(ctx context.Context, name string, a any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+	compreg.Set("agent:"+typeName, agentFactory{
+		decode: decodeCfg[T],
+		create: func(ctx context.Context, name string, a any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 			return creator(ctx, name, a.(*T), models, tools, sub)
 		},
 	})
@@ -95,12 +95,12 @@ func DecodeModelConfig(name string, node *yaml.Node) (provider string, cfg any, 
 		return "", nil, fmt.Errorf("model %q missing provider", name)
 	}
 
-	e, ok := compreg.Lookup[ModelEntry]("model:" + d.Provider)
+	e, ok := compreg.Lookup[modelFactory]("model:" + d.Provider)
 	if !ok {
 		return "", nil, fmt.Errorf("model %q: unknown provider %q", name, d.Provider)
 	}
 
-	cfg, err = e.Decode(node)
+	cfg, err = e.decode(node)
 	if err != nil {
 		return "", nil, fmt.Errorf("model %q: %w", name, err)
 	}
@@ -118,12 +118,12 @@ func DecodeAgentConfig(name string, node *yaml.Node) (typeName string, cfg any, 
 		typeName = "llm"
 	}
 
-	e, ok := compreg.Lookup[AgentEntry]("agent:" + typeName)
+	e, ok := compreg.Lookup[agentFactory]("agent:" + typeName)
 	if !ok {
 		return "", nil, fmt.Errorf("agent %q: unknown type %q", name, typeName)
 	}
 
-	cfg, err = e.Decode(node)
+	cfg, err = e.decode(node)
 	if err != nil {
 		return "", nil, fmt.Errorf("agent %q: %w", name, err)
 	}
@@ -131,18 +131,18 @@ func DecodeAgentConfig(name string, node *yaml.Node) (typeName string, cfg any, 
 	return typeName, cfg, nil
 }
 
-func CreateModel(ctx context.Context, provider string, cfg any) (model.LLM, error) {
-	e, ok := compreg.Lookup[ModelEntry]("model:" + provider)
+func createModel(ctx context.Context, provider string, cfg any) (model.LLM, error) {
+	e, ok := compreg.Lookup[modelFactory]("model:" + provider)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	return e.Create(ctx, cfg)
+	return e.create(ctx, cfg)
 }
 
-func CreateAgent(ctx context.Context, typeName, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
-	e, ok := compreg.Lookup[AgentEntry]("agent:" + typeName)
+func createAgent(ctx context.Context, typeName, name string, cfg any, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+	e, ok := compreg.Lookup[agentFactory]("agent:" + typeName)
 	if !ok {
 		return nil, fmt.Errorf("unknown agent type %q", typeName)
 	}
-	return e.Create(ctx, name, cfg, models, tools, sub)
+	return e.create(ctx, name, cfg, models, tools, sub)
 }

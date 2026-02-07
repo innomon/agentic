@@ -6,29 +6,27 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/innomon/med-agent/internal/componentreg"
-	"github.com/innomon/med-agent/internal/config"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/tool"
 )
 
 var (
-	_ componentreg.ModelRegistry = (*modelAdapter)(nil)
-	_ componentreg.ToolRegistry  = (*toolAdapter)(nil)
+	_ ModelRegistry = (*modelAdapter)(nil)
+	_ ToolRegistry  = (*toolAdapter)(nil)
 )
 
 type loader func(ctx context.Context, r *Registry, name string) (any, error)
 
 type Registry struct {
-	cfg      *config.Config
+	cfg      *Config
 	mu       sync.RWMutex
 	items    map[string]any
 	loaders  map[reflect.Type]loader
 	building map[string]bool
 }
 
-func New(cfg *config.Config) *Registry {
+func New(cfg *Config) *Registry {
 	r := &Registry{
 		cfg:      cfg,
 		items:    make(map[string]any),
@@ -121,7 +119,7 @@ func loadModel(ctx context.Context, r *Registry, name string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := componentreg.CreateModel(ctx, entry.Provider, entry.Config)
+	m, err := createModel(ctx, entry.Provider, entry.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create model %q: %w", name, err)
 	}
@@ -133,7 +131,7 @@ func loadTool(ctx context.Context, r *Registry, name string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return componentreg.CreateTool(ctx, entry.Type, name, entry.Config)
+	return createTool(ctx, entry.Type, name, entry.Config)
 }
 
 func loadAgent(ctx context.Context, r *Registry, name string) (any, error) {
@@ -157,7 +155,7 @@ func loadAgent(ctx context.Context, r *Registry, name string) (any, error) {
 		subAgents = append(subAgents, sub)
 	}
 
-	a, err := componentreg.CreateAgent(ctx, entry.Type, name, entry.Config, &modelAdapter{r}, &toolAdapter{r}, subAgents)
+	a, err := createAgent(ctx, entry.Type, name, entry.Config, &modelAdapter{r}, &toolAdapter{r}, subAgents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent %q: %w", name, err)
 	}

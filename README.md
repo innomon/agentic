@@ -488,13 +488,13 @@ package myagent
 
 import (
     "context"
-    "github.com/innomon/med-agent/internal/componentreg"
+    "github.com/innomon/med-agent/internal/registry"
     "google.golang.org/adk/agent"
 )
 
 // Define your config struct with custom fields
 type MyAgentConfig struct {
-    componentreg.AgentBase `yaml:",inline"`
+    registry.AgentBase `yaml:",inline"`
     CustomField string `yaml:"custom_field"`
     Threshold   int    `yaml:"threshold"`
 }
@@ -508,10 +508,10 @@ func (c *MyAgentConfig) Validate() error {
 }
 
 func init() {
-    componentreg.RegisterAgentType("myType", createMyAgent)
+    registry.RegisterAgentType("myType", createMyAgent)
 }
 
-func createMyAgent(ctx context.Context, name string, cfg *MyAgentConfig, models componentreg.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func createMyAgent(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
     // cfg is fully typed - access cfg.CustomField, cfg.Threshold directly
     return myCustomAgent, nil
 }
@@ -563,12 +563,12 @@ package main
 
 import (
     "context"
-    "github.com/innomon/med-agent/internal/componentreg"
+    "github.com/innomon/med-agent/internal/registry"
 )
 
 func init() {
     // Register handler for the "get_weather" tool
-    componentreg.RegisterToolHandler("get_weather", func(ctx context.Context, args map[string]any) (any, error) {
+    registry.RegisterToolHandler("get_weather", func(ctx context.Context, args map[string]any) (any, error) {
         location := args["location"].(string)
         // Fetch weather data...
         return map[string]any{
@@ -602,19 +602,19 @@ Register custom tool types with their own config schema:
 ```go
 import (
     "context"
-    "github.com/innomon/med-agent/internal/componentreg"
+    "github.com/innomon/med-agent/internal/registry"
     "google.golang.org/adk/tool"
     "google.golang.org/adk/tool/functiontool"
 )
 
 type APIToolConfig struct {
-    componentreg.ToolBase `yaml:",inline"`
+    registry.ToolBase `yaml:",inline"`
     Endpoint string `yaml:"endpoint"`
     Method   string `yaml:"method"`
 }
 
 func init() {
-    componentreg.RegisterToolType("api", func(ctx context.Context, name string, cfg *APIToolConfig) (tool.Tool, error) {
+    registry.RegisterToolType("api", func(ctx context.Context, name string, cfg *APIToolConfig) (tool.Tool, error) {
         return functiontool.New(functiontool.Config{
             Name:        name,
             Description: cfg.Description,
@@ -646,18 +646,18 @@ package myprovider
 
 import (
     "context"
-    "github.com/innomon/med-agent/internal/componentreg"
+    "github.com/innomon/med-agent/internal/registry"
     "google.golang.org/adk/model"
 )
 
 type MyProviderConfig struct {
-    componentreg.ModelBase `yaml:",inline"`
+    registry.ModelBase `yaml:",inline"`
     Endpoint string `yaml:"endpoint"`
     Timeout  int    `yaml:"timeout"`
 }
 
 func init() {
-    componentreg.RegisterModelProvider("myprovider", createMyModel)
+    registry.RegisterModelProvider("myprovider", createMyModel)
 }
 
 func createMyModel(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
@@ -746,20 +746,22 @@ med-agent/
 ├── config/
 │   └── config.yaml             # Agent, model, and tool configuration
 ├── internal/
-│   ├── componentreg/           # Generic component registry (Go generics)
-│   │   ├── registry.go         # Core registration with generics
-│   │   ├── models.go           # Built-in model providers (Gemini, OpenAI)
-│   │   ├── ollama.go           # Ollama provider (official OpenAI SDK)
-│   │   ├── agents.go           # Built-in agent types (llm, sequential, etc.)
-│   │   └── tools.go            # Tools registry and built-in tool types
+│   ├── compreg/
+│   │   └── compreg.go          # Global component register (shared map)
 │   ├── config/
-│   │   └── config.go           # Config loader with schema-based parsing
+│   │   └── config.go           # Config file loader (thin wrapper)
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
-│   └── registry/
-│       └── registry.go         # Unified registry (models, agents, tools)
+│   └── registry/               # Unified registry (config, components, instances)
+│       ├── registry.go         # Instance cache with generic Get[T]
+│       ├── config.go           # Config types and YAML parsing
+│       ├── compreg.go          # Component type registration and factories
+│       ├── models.go           # Built-in model providers (Gemini, OpenAI)
+│       ├── ollama.go           # Ollama provider (official OpenAI SDK)
+│       ├── agents.go           # Built-in agent types (llm, sequential, etc.)
+│       └── tools.go            # Tool type registration and built-in tools
 ├── openai-proxy/               # OpenAI-compatible API proxy
 │   ├── main.go                 # Proxy server (Ollama-style design)
 │   └── config.yaml             # Proxy configuration
