@@ -511,8 +511,9 @@ func init() {
     registry.RegisterAgentType("myType", createMyAgent)
 }
 
-func createMyAgent(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+func createMyAgent(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
     // cfg is fully typed - access cfg.CustomField, cfg.Threshold directly
+    // tools.GetMultiple(ctx, names) returns ([]tool.Tool, error)
     return myCustomAgent, nil
 }
 ```

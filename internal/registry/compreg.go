@@ -8,6 +8,7 @@ import (
 	"github.com/innomon/med-agent/internal/compreg"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
+	"google.golang.org/adk/tool"
 	"gopkg.in/yaml.v3"
 )
 
@@ -43,7 +44,7 @@ type ModelRegistry interface {
 }
 
 type ToolRegistry interface {
-	GetMultiple(ctx context.Context, names []string) (any, error)
+	GetMultiple(ctx context.Context, names []string) ([]tool.Tool, error)
 }
 
 type modelFactory struct {

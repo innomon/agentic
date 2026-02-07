@@ -145,8 +145,9 @@ type MyAgentConfig struct {
 func (c *MyAgentConfig) Validate() error { return nil }
 
 func init() {
-    registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, sub []agent.Agent) (agent.Agent, error) {
+    registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
         // cfg is fully typed - access cfg.CustomField directly
+        // tools.GetMultiple(ctx, names) returns ([]tool.Tool, error)
         return myCustomAgent, nil
     })
 }

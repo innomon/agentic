@@ -170,6 +170,6 @@ func (a *modelAdapter) Get(ctx context.Context, name string) (model.LLM, error) 
 
 type toolAdapter struct{ r *Registry }
 
-func (a *toolAdapter) GetMultiple(ctx context.Context, names []string) (any, error) {
+func (a *toolAdapter) GetMultiple(ctx context.Context, names []string) ([]tool.Tool, error) {
 	return a.r.GetTools(ctx, names)
 }

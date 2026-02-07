@@ -9,7 +9,6 @@ import (
 	"google.golang.org/adk/agent/workflowagents/loopagent"
 	"google.golang.org/adk/agent/workflowagents/parallelagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
-	"google.golang.org/adk/tool"
 )
 
 type AgentBase struct {
@@ -61,15 +60,11 @@ func llmCreator(ctx context.Context, name string, cfg *LLMAgentConfig, models Mo
 
 	// Add tools if specified
 	if len(cfg.Tools) > 0 && tools != nil {
-		toolSet, err := tools.GetMultiple(ctx, cfg.Tools)
+		t, err := tools.GetMultiple(ctx, cfg.Tools)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get tools: %w", err)
 		}
-		if toolSet != nil {
-			if t, ok := toolSet.([]tool.Tool); ok {
-				agentCfg.Tools = t
-			}
-		}
+		agentCfg.Tools = t
 	}
 
 	return llmagent.New(agentCfg)
