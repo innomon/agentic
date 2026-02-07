@@ -64,7 +64,7 @@ curl -N -X POST "http://localhost:8080/api/run_sse" \
 
 ```
 med-agent/
-├── main.go                      # Entry point with launcher setup
+├── main.go                      # Entry point
 ├── config/
 │   └── config.yaml             # Agent and model configuration
 ├── internal/
@@ -80,6 +80,7 @@ med-agent/
 │       ├── registry.go         # Instance cache with generic Get[T]
 │       ├── config.go           # Config types and YAML parsing
 │       ├── compreg.go          # Component type registration and factories
+│       ├── launcher.go         # Launcher config builder (session, memory)
 │       ├── models.go           # Built-in model providers (Gemini, OpenAI)
 │       ├── ollama.go           # Ollama provider (official OpenAI SDK)
 │       ├── agents.go           # Built-in agent types (llm, sequential, etc.)
