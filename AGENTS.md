@@ -74,7 +74,8 @@ root_agent: MedAgent
 med-agent/
 ├── main.go                      # Entry point
 ├── config/
-│   └── config.yaml             # Agent and model configuration
+│   ├── config.yaml             # Agent and model configuration
+│   └── routing-sample.yaml     # Sample routing agent configuration
 ├── internal/
 │   ├── compreg/
 │   │   └── compreg.go          # Global component register (shared map)
@@ -86,6 +87,11 @@ med-agent/
 │   │   └── verifier.go         # JWT RS256 token verification and middleware
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
+│   ├── routing/                # Role-based routing agent
+│   │   ├── routing.go          # Routing agent type (role→agent mapping)
+│   │   └── tools.go            # UserDB tool type (GORM user profiles)
+│   ├── userdb/
+│   │   └── userdb.go           # User profile database (GORM, JSONB)
 │   └── registry/               # Unified registry (config, components, instances)
 │       ├── registry.go         # Instance cache with generic Get[T]
 │       ├── config.go           # Config types and YAML parsing
@@ -138,6 +144,31 @@ registry.RegisterToolHandler("my_tool", func(ctx context.Context, args map[strin
 })
 ```
 
+## UserDB Tools
+
+The `userdb` tool type provides GORM-backed user profile management. Tools share a singleton DB connection per DSN.
+
+```yaml
+tools:
+  get_user_profile:
+    type: userdb
+    op: get_profile
+    description: Retrieve user profile
+    parameters:
+      user_id: {type: string, required: true}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost/medagent
+      auto_migrate: true
+    admin_users: [admin1, admin2]
+```
+
+Operations: `get_profile`, `create_user`, `update_status`, `update_roles`, `update_channels`, `delete_user`.
+
+- Admin role cannot be set via `update_roles`; it is config-only via `admin_users`.
+- `get_profile` returns `{"found": false}` for unknown users (enables anonymous routing).
+- Caller ID for audit is extracted from JWT claims (`auth.ClaimsFromContext`).
+
 ## Custom Agent Types
 
 The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
@@ -168,6 +199,7 @@ Built-in types:
 - `sequential` - Executes sub-agents once in order via `sequentialagent.New()`
 - `parallel` - Executes sub-agents concurrently via `parallelagent.New()`
 - `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
+- `routing` - Role-based routing agent with user profile lookup and disambiguation
 
 Specify type in config:
 ```yaml
@@ -190,6 +222,21 @@ agents:
     max_iterations: 3  # 0 = run until escalation
     sub_agents:
       - RefineAgent
+
+  MyRouter:
+    type: routing
+    description: "Route users by role"
+    model: gemini-flash
+    admin_users: [admin1]
+    role_routes:
+      admin: AdminAgent
+      farmer: FarmerAgent
+      anonymous: PublicAgent
+    tools: [get_user_profile]
+    sub_agents:
+      - AdminAgent
+      - FarmerAgent
+      - PublicAgent
 ```
 
 ## Custom Model Providers

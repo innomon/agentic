@@ -11,6 +11,8 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **Config-Driven**: All agents, models, and tools defined in YAML configuration
 - **Persistent Memory**: Database-backed conversation memory with configurable providers (PostgreSQL, SQLite)
 - **JWT Authentication**: Optional RS256 JWT verification middleware for securing API endpoints
+- **Role-Based Routing**: Route users to agents based on database-stored roles with admin config override and contextual disambiguation
+- **User Profile Database**: GORM-backed user management with JSONB profile/metadata, status tracking, and admin role protection
 - **Extensible Tools**: Define custom tools in YAML with Go handlers for agent capabilities
 
 ## Architecture
@@ -453,6 +455,7 @@ agents:
 | `sequential` | Executes sub-agents once in order |
 | `parallel` | Executes sub-agents concurrently |
 | `loop` | Repeatedly executes sub-agents |
+| `routing` | Role-based user routing with disambiguation |
 
 #### Workflow Agent Examples
 
@@ -485,6 +488,47 @@ agents:
       - DraftAgent
       - ReviewAgent
 ```
+
+#### Routing Agent
+
+The `routing` agent type routes users to sub-agents based on their database roles. It supports admin users from config, anonymous fallback, status/channel checks, and LLM-based disambiguation when multiple roles match.
+
+```yaml
+agents:
+  RoutingAgent:
+    type: routing
+    description: Routes users based on roles
+    model: gemini-flash
+    admin_users: [admin1, admin2]     # admin users (config-only, never set via DB)
+    role_routes:
+      admin: AdminAgent
+      farmer: FarmerAgent
+      seller: SellerAgent
+      anonymous: PublicInfoAgent      # optional anonymous fallback
+    tools: [get_user_profile]
+    sub_agents:
+      - AdminAgent
+      - FarmerAgent
+      - SellerAgent
+      - PublicInfoAgent
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `admin_users` | User IDs granted admin role (config-only) | No |
+| `role_routes` | Map of role name → sub-agent name | Yes |
+| `model` | Model for disambiguation decisions | Yes |
+| `tools` | Tools available to the routing agent | No |
+
+Routing logic:
+1. Retrieves user profile via `get_user_profile` tool
+2. Admin users (from config) route directly to the admin agent
+3. Users with status `Pending` or `Suspended` are denied
+4. Single matching role → route to mapped agent
+5. Multiple matching roles → LLM disambiguates based on query context
+6. Unknown users → route to `anonymous` agent or reject
+
+See `config/routing-sample.yaml` for a complete working example.
 
 ### Custom Agent Types
 
@@ -644,6 +688,40 @@ tools:
     endpoint: https://ehr.example.com/api/patients
     method: GET
 ```
+
+#### UserDB Tool Type
+
+The `userdb` tool type provides GORM-backed user profile CRUD operations. All tools sharing the same DSN use a singleton database connection.
+
+```yaml
+tools:
+  get_user_profile:
+    type: userdb
+    op: get_profile                # Operation: get_profile, create_user, update_status, update_roles, update_channels, delete_user
+    description: Retrieve user profile
+    parameters:
+      user_id: {type: string, required: true}
+    db:
+      driver: postgres             # postgres or sqlite
+      dsn: postgres://user:pass@localhost/medagent
+      auto_migrate: true
+    admin_users: [admin1, admin2]  # Users with config-level admin role
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `op` | Operation to perform | Yes |
+| `db.driver` | Database driver (`postgres`, `sqlite`) | Yes |
+| `db.dsn` | Database connection string | Yes |
+| `db.auto_migrate` | Auto-create/update schema | No |
+| `admin_users` | Admin user IDs (merged into role results) | No |
+
+The user profile schema stores:
+- **status**: `Active`, `Pending`, or `Suspended`
+- **profile** (JSONB): `user_id`, `roles[]`, `channels[]`
+- **metadata** (JSONB): `update_timestamp`, `updated_by`, `channel`
+
+Admin role protection: the `update_roles` operation rejects any attempt to set the `admin` role; admin access is exclusively controlled via the `admin_users` config list.
 
 ### Custom Model Providers
 
@@ -823,7 +901,8 @@ curl -X POST http://localhost:8080/api/run_sse \
 med-agent/
 ├── main.go                      # Entry point
 ├── config/
-│   └── config.yaml             # Agent, model, and tool configuration
+│   ├── config.yaml             # Agent, model, and tool configuration
+│   └── routing-sample.yaml     # Sample routing agent configuration
 ├── internal/
 │   ├── compreg/
 │   │   └── compreg.go          # Global component register (shared map)
@@ -835,6 +914,11 @@ med-agent/
 │   │   └── verifier.go         # JWT RS256 token verification and middleware
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
+│   ├── routing/                # Role-based routing agent
+│   │   ├── routing.go          # Routing agent type (role→agent mapping)
+│   │   └── tools.go            # UserDB tool type (GORM user profiles)
+│   ├── userdb/
+│   │   └── userdb.go           # User profile database (GORM, JSONB)
 │   └── registry/               # Unified registry (config, components, instances)
 │       ├── registry.go         # Instance cache with generic Get[T]
 │       ├── config.go           # Config types and YAML parsing
