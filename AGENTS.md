@@ -295,6 +295,7 @@ if claims != nil {
 
 - `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
 - `OPENAI_API_KEY` - Required for OpenAI model access (if not set in config)
+- `BYPASS_AUTH` - Set to `true` to skip JWT verification for localhost requests (dev only)
 
 ## Model Configuration
 

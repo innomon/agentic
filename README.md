@@ -780,6 +780,16 @@ The gateway signs tokens with the private key. The ADK server verifies using the
 | `iat` | `number` | Issued at (Unix timestamp) |
 | `exp` | `number` | Expiry (Unix timestamp) |
 
+#### Development Bypass
+
+Set `BYPASS_AUTH=true` to skip JWT verification for localhost requests. When active, requests from `localhost`, `127.0.0.1`, or `::1` are automatically authenticated with default claims (`user_id=local-dev`, `channel=local`).
+
+```bash
+BYPASS_AUTH=true ./med-agent web
+```
+
+> **Warning**: Never enable `BYPASS_AUTH` in production. The bypass only applies to localhost origins.
+
 #### Testing with curl
 
 ```bash
@@ -793,6 +803,12 @@ curl -X POST http://localhost:8080/api/run_sse \
 curl -X POST http://localhost:8080/api/run_sse \
   -H "Content-Type: application/json" \
   -d '{ ... }'
+
+# Local dev with auth bypass
+BYPASS_AUTH=true ./med-agent web
+curl -X POST http://localhost:8080/api/run_sse \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'  # no Authorization header needed
 ```
 
 ## Project Structure
