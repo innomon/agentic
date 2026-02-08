@@ -60,6 +60,14 @@ curl -N -X POST "http://localhost:8080/api/run_sse" \
   }'
 ```
 
+## Root Agent
+
+The `root_agent` top-level config field specifies which agent is the entry point. Defaults to `RootAgent` if omitted.
+
+```yaml
+root_agent: MedAgent
+```
+
 ## Project Structure
 
 ```

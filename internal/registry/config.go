@@ -7,12 +7,13 @@ import (
 )
 
 type RawConfig struct {
-	Models  map[string]*yaml.Node
-	Agents  map[string]*yaml.Node
-	Tools   map[string]*yaml.Node
-	Session *yaml.Node
-	Memory  *yaml.Node
-	Auth    *yaml.Node
+	Models    map[string]*yaml.Node
+	Agents    map[string]*yaml.Node
+	Tools     map[string]*yaml.Node
+	Session   *yaml.Node
+	Memory    *yaml.Node
+	Auth      *yaml.Node
+	RootAgent string
 }
 
 func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -52,6 +53,8 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			r.Memory = val
 		case "auth":
 			r.Auth = val
+		case "root_agent":
+			r.RootAgent = val.Value
 		}
 	}
 	return nil
@@ -105,19 +108,21 @@ type JWTConfig struct {
 }
 
 type Config struct {
-	Models  map[string]ModelEntry
-	Agents  map[string]AgentEntry
-	Tools   map[string]ToolEntry
-	Session *SessionConfig
-	Memory  *MemoryConfig
-	Auth    *AuthConfig
+	Models    map[string]ModelEntry
+	Agents    map[string]AgentEntry
+	Tools     map[string]ToolEntry
+	Session   *SessionConfig
+	Memory    *MemoryConfig
+	Auth      *AuthConfig
+	RootAgent string
 }
 
 func ParseRaw(raw *RawConfig) (*Config, error) {
 	cfg := &Config{
-		Models: make(map[string]ModelEntry),
-		Agents: make(map[string]AgentEntry),
-		Tools:  make(map[string]ToolEntry),
+		Models:    make(map[string]ModelEntry),
+		Agents:    make(map[string]AgentEntry),
+		Tools:     make(map[string]ToolEntry),
+		RootAgent: raw.RootAgent,
 	}
 
 	for name, node := range raw.Models {

@@ -318,6 +318,8 @@ for chunk in response:
 Agents, models, tools, and memory are configured in `config/config.yaml`:
 
 ```yaml
+root_agent: MedAgent  # optional, defaults to "RootAgent"
+
 models:
   gemini-flash:
     provider: gemini
@@ -350,6 +352,10 @@ agents:
     instruction: |
       Your system prompt here...
 ```
+
+### Root Agent
+
+The `root_agent` top-level field specifies which agent in the `agents` map is the entry point. If omitted, it defaults to `RootAgent`.
 
 ### Adding New Models
 

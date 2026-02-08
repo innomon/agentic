@@ -5,6 +5,8 @@
 #     issuer: whatsadk-gateway
 #     audience: adk-agent
 
+root_agent: MedAgent
+
 # MedAgent Configuration
 # Model and Agent Registry Configuration
 #

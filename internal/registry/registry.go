@@ -115,7 +115,11 @@ func (r *Registry) GetTools(ctx context.Context, names []string) ([]tool.Tool, e
 }
 
 func (r *Registry) GetRoot(ctx context.Context) (agent.Agent, error) {
-	return Get[agent.Agent](ctx, r, "MedAgent")
+	name := r.cfg.RootAgent
+	if name == "" {
+		name = "RootAgent"
+	}
+	return Get[agent.Agent](ctx, r, name)
 }
 
 func loadModel(ctx context.Context, r *Registry, name string) (any, error) {
