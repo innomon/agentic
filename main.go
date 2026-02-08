@@ -10,6 +10,7 @@ import (
 	"github.com/innomon/med-agent/internal/config"
 	"github.com/innomon/med-agent/internal/console"
 	"github.com/innomon/med-agent/internal/registry"
+	_ "github.com/innomon/med-agent/internal/routing"
 
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"

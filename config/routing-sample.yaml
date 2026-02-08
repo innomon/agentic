@@ -1,0 +1,162 @@
+# Sample configuration for RoutingAgent
+# Copy the relevant sections into your config.yaml
+
+root_agent: RoutingAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+# User profile database tools
+tools:
+  get_user_profile:
+    type: userdb
+    op: get_profile
+    description: Retrieve a user's profile including roles, channels, and status
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID to look up"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      auto_migrate: true
+    admin_users:
+      - admin1
+      - admin2
+
+  create_user:
+    type: userdb
+    op: create_user
+    description: Create a new user with profile, roles, and channels
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID"}
+      status: {type: string, description: "User status (Active, Pending, Suspended). Defaults to Pending."}
+      channels: {type: array, description: "List of channel access strings"}
+      roles: {type: array, description: "List of role strings (admin cannot be set here)"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      auto_migrate: true
+    admin_users:
+      - admin1
+      - admin2
+
+  update_user_status:
+    type: userdb
+    op: update_status
+    description: Update a user's status (Active, Pending, or Suspended)
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID"}
+      status: {type: string, required: true, description: "New status (Active, Pending, Suspended)"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+    admin_users:
+      - admin1
+      - admin2
+
+  update_user_roles:
+    type: userdb
+    op: update_roles
+    description: Update a user's roles (admin role cannot be assigned via this tool)
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID"}
+      roles: {type: array, required: true, description: "New roles array"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+    admin_users:
+      - admin1
+      - admin2
+
+  update_user_channels:
+    type: userdb
+    op: update_channels
+    description: Update a user's channel access list
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID"}
+      channels: {type: array, required: true, description: "New channels array"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+    admin_users:
+      - admin1
+      - admin2
+
+  delete_user:
+    type: userdb
+    op: delete_user
+    description: Delete a user from the system
+    parameters:
+      user_id: {type: string, required: true, description: "The user ID to delete"}
+    db:
+      driver: postgres
+      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+    admin_users:
+      - admin1
+      - admin2
+
+agents:
+  RoutingAgent:
+    type: routing
+    description: Routes users to appropriate agents based on their roles and query context
+    model: gemini-flash
+    admin_users:
+      - admin1
+      - admin2
+    role_routes:
+      admin: AdminAgent
+      farmer: FarmerAgent
+      seller: SellerAgent
+      anonymous: PublicInfoAgent
+    tools:
+      - get_user_profile
+      - create_user
+      - update_user_status
+      - update_user_roles
+      - update_user_channels
+      - delete_user
+    sub_agents:
+      - AdminAgent
+      - FarmerAgent
+      - SellerAgent
+      - PublicInfoAgent
+    instruction: |
+      You are a routing agent that directs users to the appropriate service agent
+      based on their profile, roles, and the context of their request.
+
+  AdminAgent:
+    description: Agent for administrative operations (user management, system config)
+    model: gemini-flash
+    tools:
+      - create_user
+      - update_user_status
+      - update_user_roles
+      - update_user_channels
+      - delete_user
+      - get_user_profile
+    instruction: |
+      You are an admin assistant. You can manage users: create, update status/roles/channels, and delete users.
+      You have full system access. Help administrators manage the platform.
+
+  FarmerAgent:
+    description: Agent for farmer-related queries and operations
+    model: gemini-flash
+    instruction: |
+      You are an agricultural assistant for farmers. Help with crop management,
+      weather queries, market prices, and farming best practices.
+
+  SellerAgent:
+    description: Agent for seller/marketplace operations
+    model: gemini-flash
+    instruction: |
+      You are a marketplace assistant for sellers. Help with product listings,
+      pricing, order management, and sales analytics.
+
+  PublicInfoAgent:
+    description: Agent for anonymous/public information queries
+    model: gemini-flash
+    instruction: |
+      You are a public information assistant. Provide general information
+      about the platform and guide users on how to register for an account.
