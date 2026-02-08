@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/innomon/med-agent/internal/auth"
 	"github.com/innomon/med-agent/internal/config"
 	"github.com/innomon/med-agent/internal/console"
 	"github.com/innomon/med-agent/internal/registry"
@@ -40,6 +41,16 @@ func main() {
 	launcherConfig, err := reg.BuildLauncherConfig(ctx)
 	if err != nil {
 		log.Fatalf("Failed to build launcher config: %v", err)
+	}
+
+	if authCfg := reg.Config().Auth; authCfg != nil && authCfg.JWT != nil {
+		jwt := authCfg.JWT
+		verifier, err := auth.NewJWTVerifier(jwt.PublicKeyPath, jwt.Issuer, jwt.Audience)
+		if err != nil {
+			log.Fatalf("Failed to create JWT verifier: %v", err)
+		}
+		launcherConfig.Middleware = verifier.MiddlewareMux
+		log.Printf("JWT authentication enabled (issuer=%s, audience=%s)", jwt.Issuer, jwt.Audience)
 	}
 
 	l := universal.NewLauncher(

@@ -151,6 +151,10 @@ func (w *webLauncher) Run(ctx context.Context, config *launcher.Config) error {
 
 	router := BuildBaseRouter()
 
+	if config.Middleware != nil {
+		router.Use(config.Middleware)
+	}
+
 	// check if there are any active sublaunchers
 	if len(w.activeSublaunchers) == 0 {
 		availableSublaunchers := make([]string, len(w.sublaunchers))

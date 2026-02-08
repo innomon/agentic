@@ -17,6 +17,7 @@ package launcher
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/a2aproject/a2a-go/a2asrv"
 
@@ -59,4 +60,5 @@ type Config struct {
 	MemoryService   memory.Service
 	AgentLoader     agent.Loader
 	A2AOptions      []a2asrv.RequestHandlerOption
+	Middleware      func(http.Handler) http.Handler
 }

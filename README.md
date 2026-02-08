@@ -10,6 +10,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **FHIR R5 Output**: Generates compliant FHIR resources with proper coding systems (LOINC, SNOMED CT, RxNorm, UCUM)
 - **Config-Driven**: All agents, models, and tools defined in YAML configuration
 - **Persistent Memory**: Database-backed conversation memory with configurable providers (PostgreSQL, SQLite)
+- **JWT Authentication**: Optional RS256 JWT verification middleware for securing API endpoints
 - **Extensible Tools**: Define custom tools in YAML with Go handlers for agent capabilities
 
 ## Architecture
@@ -739,6 +740,61 @@ memory:
 | `dsn` | Database connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create/update schema on startup | No |
 
+### Authentication
+
+Optional RS256 JWT authentication for API endpoints. When configured, all web/API requests require a valid `Authorization: Bearer <token>` header.
+
+```yaml
+auth:
+  jwt:
+    public_key_path: secrets/jwt_public.pem
+    issuer: whatsadk-gateway
+    audience: adk-agent
+```
+
+#### Key Setup
+
+```bash
+openssl genrsa -out secrets/jwt_private.pem 2048
+openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
+```
+
+The gateway signs tokens with the private key. The ADK server verifies using the public key.
+
+#### Auth Configuration Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `public_key_path` | Path to RSA public key PEM file | Yes |
+| `issuer` | Expected JWT issuer claim | No |
+| `audience` | Expected JWT audience claim | No |
+
+#### JWT Claims
+
+| Claim | Type | Description |
+|-------|------|-------------|
+| `user_id` | `string` | Sender identifier (e.g., WhatsApp phone number) |
+| `channel` | `string` | Channel identifier (e.g., `"whatsapp"`) |
+| `iss` | `string` | Token issuer |
+| `aud` | `string` | Token audience |
+| `iat` | `number` | Issued at (Unix timestamp) |
+| `exp` | `number` | Expiry (Unix timestamp) |
+
+#### Testing with curl
+
+```bash
+# Authenticated request
+curl -X POST http://localhost:8080/api/run_sse \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{ ... }'
+
+# Missing auth — returns 401
+curl -X POST http://localhost:8080/api/run_sse \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
 ## Project Structure
 
 ```
@@ -753,6 +809,8 @@ med-agent/
 │   │   └── config.go           # Config file loader (thin wrapper)
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
+│   ├── auth/
+│   │   └── verifier.go         # JWT RS256 token verification and middleware
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
 │   └── registry/               # Unified registry (config, components, instances)

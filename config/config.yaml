@@ -1,3 +1,10 @@
+# JWT Authentication (uncomment to enable)
+# auth:
+#   jwt:
+#     public_key_path: secrets/jwt_public.pem
+#     issuer: whatsadk-gateway
+#     audience: adk-agent
+
 # MedAgent Configuration
 # Model and Agent Registry Configuration
 #

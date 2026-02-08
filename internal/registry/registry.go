@@ -85,6 +85,10 @@ func getOrLoadLocked[T any](ctx context.Context, r *Registry, name string) (T, e
 	return v.(T), nil
 }
 
+func (r *Registry) Config() *Config {
+	return r.cfg
+}
+
 func (r *Registry) GetDefaultModel(ctx context.Context) (model.LLM, error) {
 	name, _, err := r.cfg.GetDefaultModel()
 	if err != nil {

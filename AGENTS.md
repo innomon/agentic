@@ -74,6 +74,8 @@ med-agent/
 │   │   └── config.go           # Config file loader (thin wrapper)
 │   ├── console/
 │   │   └── console.go          # Custom console with @file attachment syntax
+│   ├── auth/
+│   │   └── verifier.go         # JWT RS256 token verification and middleware
 │   ├── memory/
 │   │   └── mem2db.go           # Database-backed memory service (GORM)
 │   └── registry/               # Unified registry (config, components, instances)
@@ -245,6 +247,42 @@ memory:
 | `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
 | `dsn` | Database connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create/update schema on startup | No |
+
+## Auth Configuration
+
+JWT authentication protects API endpoints when configured. Tokens use RS256 signing. If omitted, no authentication is applied.
+
+Configure in `config/config.yaml`:
+
+```yaml
+auth:
+  jwt:
+    public_key_path: secrets/jwt_public.pem  # Path to RSA public key
+    issuer: whatsadk-gateway                 # Expected token issuer
+    audience: adk-agent                      # Expected token audience
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `public_key_path` | Path to RSA public key PEM file | Yes |
+| `issuer` | Expected JWT issuer claim | No |
+| `audience` | Expected JWT audience claim | No |
+
+Generate the key pair:
+
+```bash
+openssl genrsa -out secrets/jwt_private.pem 2048
+openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
+```
+
+Access claims in ADK callbacks:
+
+```go
+claims := auth.ClaimsFromContext(ctx)
+if claims != nil {
+    log.Printf("user_id=%s, channel=%s", claims.UserID, claims.Channel)
+}
+```
 
 ## FHIR Coding Systems
 

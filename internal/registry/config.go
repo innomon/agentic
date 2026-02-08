@@ -12,6 +12,7 @@ type RawConfig struct {
 	Tools   map[string]*yaml.Node
 	Session *yaml.Node
 	Memory  *yaml.Node
+	Auth    *yaml.Node
 }
 
 func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -49,6 +50,8 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			r.Session = val
 		case "memory":
 			r.Memory = val
+		case "auth":
+			r.Auth = val
 		}
 	}
 	return nil
@@ -91,12 +94,23 @@ type MemoryConfig struct {
 	AutoMigrate bool   `yaml:"auto_migrate"`
 }
 
+type AuthConfig struct {
+	JWT *JWTConfig `yaml:"jwt"`
+}
+
+type JWTConfig struct {
+	PublicKeyPath string `yaml:"public_key_path"`
+	Issuer        string `yaml:"issuer"`
+	Audience      string `yaml:"audience"`
+}
+
 type Config struct {
 	Models  map[string]ModelEntry
 	Agents  map[string]AgentEntry
 	Tools   map[string]ToolEntry
 	Session *SessionConfig
 	Memory  *MemoryConfig
+	Auth    *AuthConfig
 }
 
 func ParseRaw(raw *RawConfig) (*Config, error) {
@@ -177,6 +191,14 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 			return nil, fmt.Errorf("failed to parse memory config: %w", err)
 		}
 		cfg.Memory = &mem
+	}
+
+	if raw.Auth != nil {
+		var auth AuthConfig
+		if err := raw.Auth.Decode(&auth); err != nil {
+			return nil, fmt.Errorf("failed to parse auth config: %w", err)
+		}
+		cfg.Auth = &auth
 	}
 
 	return cfg, nil
