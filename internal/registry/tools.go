@@ -7,6 +7,7 @@ import (
 	"github.com/innomon/med-agent/internal/compreg"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/tool/geminitool"
 	"gopkg.in/yaml.v3"
 )
 
@@ -99,6 +100,28 @@ func builtinToolCreator(_ context.Context, name string, cfg *BuiltinToolConfig) 
 	})
 }
 
+type GeminiToolConfig struct {
+	ToolBase `yaml:",inline"`
+	Tool     string `yaml:"tool"`
+}
+
+var geminiBuiltins = map[string]func() tool.Tool{
+	"google_search": func() tool.Tool { return geminitool.GoogleSearch{} },
+}
+
+func geminiToolCreator(_ context.Context, name string, cfg *GeminiToolConfig) (tool.Tool, error) {
+	key := cfg.Tool
+	if key == "" {
+		key = name
+	}
+	factory, ok := geminiBuiltins[key]
+	if !ok {
+		return nil, fmt.Errorf("unknown gemini built-in tool %q", key)
+	}
+	return factory(), nil
+}
+
 func init() {
 	RegisterToolType("builtin", builtinToolCreator)
+	RegisterToolType("gemini", geminiToolCreator)
 }

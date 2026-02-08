@@ -1,0 +1,21 @@
+root_agent: SearchAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+tools:
+  google_search:
+    type: gemini
+
+agents:
+  SearchAgent:
+    description: An agent that can search the web using Google Search
+    model: gemini-flash
+    tools: [google_search]
+    instruction: |
+      You are a helpful research assistant with access to Google Search.
+      When the user asks a question, use google_search to find current,
+      accurate information from the web and summarize it clearly.
