@@ -1,4 +1,4 @@
-module github.com/innomon/med-agent
+module github.com/innomon/agentic
 
 go 1.24.9
 

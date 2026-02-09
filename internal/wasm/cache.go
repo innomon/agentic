@@ -15,7 +15,7 @@ var (
 
 func getCompilationCache() wazero.CompilationCache {
 	compilationCacheOnce.Do(func() {
-		dir := filepath.Join(os.TempDir(), "med-agent-wasm-cache")
+		dir := filepath.Join(os.TempDir(), "agentic-wasm-cache")
 		cache, err := wazero.NewCompilationCacheWithDir(dir)
 		if err != nil {
 			cache = wazero.NewCompilationCache()

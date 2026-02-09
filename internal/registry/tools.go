@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/innomon/med-agent/internal/compreg"
+	"github.com/innomon/agentic/internal/compreg"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 	"google.golang.org/adk/tool/geminitool"

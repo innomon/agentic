@@ -1,5 +1,5 @@
 # Organic Farming Agent Configuration
-# Usage: ./med-agent config/farmer-config.yaml console
+# Usage: ./agentic examples/farmer/config.yaml console
 #
 # Farmer identity is the Google social login email address.
 # Long-term memory persists conversation history across sessions.

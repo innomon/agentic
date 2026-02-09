@@ -6,12 +6,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/innomon/med-agent/internal/auth"
-	"github.com/innomon/med-agent/internal/config"
-	"github.com/innomon/med-agent/internal/console"
-	"github.com/innomon/med-agent/internal/registry"
-	_ "github.com/innomon/med-agent/internal/routing"
-	_ "github.com/innomon/med-agent/internal/wasm"
+	"github.com/innomon/agentic/internal/auth"
+	"github.com/innomon/agentic/internal/config"
+	"github.com/innomon/agentic/internal/console"
+	"github.com/innomon/agentic/internal/registry"
+	_ "github.com/innomon/agentic/internal/routing"
+	_ "github.com/innomon/agentic/internal/wasm"
 
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"

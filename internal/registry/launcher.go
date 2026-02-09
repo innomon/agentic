@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/innomon/med-agent/internal/memory"
+	"github.com/innomon/agentic/internal/memory"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"

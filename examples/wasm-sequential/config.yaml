@@ -8,7 +8,7 @@
 #   cd examples/wasm-sequential && make build
 #
 # Run with this config:
-#   ./med-agent config/agentic-wasm.yaml console
+#   ./agentic examples/wasm-sequential/config.yaml console
 
 root_agent: WasmOrchestrator
 

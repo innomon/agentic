@@ -1,4 +1,4 @@
-module github.com/innomon/med-agent/openai-proxy
+module github.com/innomon/agentic/openai-proxy
 
 go 1.25.5
 

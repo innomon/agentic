@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/innomon/med-agent/internal/registry"
+	"github.com/innomon/agentic/internal/registry"
 	"gopkg.in/yaml.v3"
 )
 

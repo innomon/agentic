@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/innomon/med-agent/internal/auth"
-	"github.com/innomon/med-agent/internal/registry"
-	"github.com/innomon/med-agent/internal/userdb"
+	"github.com/innomon/agentic/internal/auth"
+	"github.com/innomon/agentic/internal/registry"
+	"github.com/innomon/agentic/internal/userdb"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 	"gorm.io/gorm"

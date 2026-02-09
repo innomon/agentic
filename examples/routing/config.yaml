@@ -19,7 +19,7 @@ tools:
       user_id: {type: string, required: true, description: "The user ID to look up"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
       auto_migrate: true
     admin_users:
       - admin1
@@ -36,7 +36,7 @@ tools:
       roles: {type: array, description: "List of role strings (admin cannot be set here)"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
       auto_migrate: true
     admin_users:
       - admin1
@@ -51,7 +51,7 @@ tools:
       status: {type: string, required: true, description: "New status (Active, Pending, Suspended)"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
     admin_users:
       - admin1
       - admin2
@@ -65,7 +65,7 @@ tools:
       roles: {type: array, required: true, description: "New roles array"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
     admin_users:
       - admin1
       - admin2
@@ -79,7 +79,7 @@ tools:
       channels: {type: array, required: true, description: "New channels array"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
     admin_users:
       - admin1
       - admin2
@@ -92,7 +92,7 @@ tools:
       user_id: {type: string, required: true, description: "The user ID to delete"}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost:5432/medagent?sslmode=disable
+      dsn: postgres://user:pass@localhost:5432/agentic?sslmode=disable
     admin_users:
       - admin1
       - admin2

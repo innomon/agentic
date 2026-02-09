@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/innomon/med-agent/internal/registry"
+	"github.com/innomon/agentic/internal/registry"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 )

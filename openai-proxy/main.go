@@ -643,7 +643,7 @@ func loadConfig(path string) (*Config, error) {
 		config.Proxy.ADK.Endpoint = "http://localhost:8080"
 	}
 	if config.Proxy.ADK.AppName == "" {
-		config.Proxy.ADK.AppName = "MedAgent"
+		config.Proxy.ADK.AppName = "Agentic"
 	}
 	if config.Proxy.Defaults.UserID == "" {
 		config.Proxy.Defaults.UserID = "openai-proxy-user"
@@ -664,7 +664,7 @@ func main() {
 					Listen: ":9080",
 					ADK: ADKConfig{
 						Endpoint: "http://localhost:8080",
-						AppName:  "MedAgent",
+						AppName:  "Agentic",
 					},
 					Defaults: DefaultsConf{
 						UserID: "openai-proxy-user",

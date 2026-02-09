@@ -25,7 +25,7 @@ type OCIPuller struct {
 
 func NewOCIPuller(cacheDir string) *OCIPuller {
 	if cacheDir == "" {
-		cacheDir = filepath.Join(os.TempDir(), "med-agent-wasm-oci")
+		cacheDir = filepath.Join(os.TempDir(), "agentic-wasm-oci")
 	}
 	return &OCIPuller{
 		rc:       regclient.New(),

@@ -1,20 +1,23 @@
-# MedAgent - ADK-Go Project
+# Agentic - ADK-Go Framework
 
 ## Overview
 
-MedAgent is a medical document transcription agent built with Google's ADK-Go framework. It converts PDF and image files of medical documents into FHIR R5 compliant JSON.
+Agentic is a config-driven agentic framework built on Google's ADK-Go. It enables building multi-agent systems entirely through YAML configuration and WebAssembly plugins — no recompilation needed to add new use-cases.
 
 ## Commands
 
 ```bash
 # Build the project
-go build -o med-agent .
+go build -o agentic .
 
-# Run in console mode (with @file attachment syntax)
-./med-agent console
+# Run with default config (config/config.yaml)
+./agentic console
+
+# Run with custom config
+./agentic examples/farmer/config.yaml console
 
 # Run in web UI mode (http://localhost:8080/ui/)
-./med-agent web
+./agentic web
 
 # Run tests
 go test ./...
@@ -28,9 +31,9 @@ go mod tidy
 The console supports attaching files using `@/path/to/file` syntax:
 
 ```bash
-./med-agent console
-User -> Create FHIR from this lab report @./document.pdf
-User -> Extract prescription @./image.png @./notes.txt
+./agentic console
+User -> Analyze this document @./document.pdf
+User -> Process these files @./image.png @./notes.txt
 ```
 
 ### API File Attachments
@@ -39,21 +42,21 @@ Send files via the REST API using base64-encoded inline data:
 
 ```bash
 # Create session
-SESSION=$(curl -s -X POST "http://localhost:8080/api/apps/MedAgent/users/user/sessions" \
+SESSION=$(curl -s -X POST "http://localhost:8080/api/apps/Agentic/users/user/sessions" \
   -H "Content-Type: application/json" -d '{}' | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
 
 # Send PDF
 curl -N -X POST "http://localhost:8080/api/run_sse" \
   -H "Content-Type: application/json" \
   -d '{
-    "appName": "MedAgent",
+    "appName": "Agentic",
     "userId": "user",
     "sessionId": "'"$SESSION"'",
     "streaming": true,
     "newMessage": {
       "role": "user",
       "parts": [
-        {"text": "Create FHIR from this"},
+        {"text": "Analyze this document"},
         {"inlineData": {"mimeType": "application/pdf", "data": "'"$(base64 -w0 file.pdf)"'"}}
       ]
     }
@@ -65,57 +68,75 @@ curl -N -X POST "http://localhost:8080/api/run_sse" \
 The `root_agent` top-level config field specifies which agent is the entry point. Defaults to `RootAgent` if omitted.
 
 ```yaml
-root_agent: MedAgent
+root_agent: RootAgent
 ```
 
 ## Project Structure
 
 ```
-med-agent/
+agentic/
 ├── main.go                      # Entry point
 ├── config/
-│   ├── config.yaml             # Agent and model configuration
-│   └── routing-sample.yaml     # Sample routing agent configuration
+│   └── config.yaml              # Default configuration
+├── examples/
+│   ├── med-fhir/                # Medical FHIR transcription use-case
+│   │   ├── config.yaml
+│   │   ├── pkg/fhir/types.go    # FHIR R5 Go type definitions
+│   │   └── README.md
+│   ├── farmer/                  # Organic farming advisor use-case
+│   │   ├── config.yaml
+│   │   └── README.md
+│   ├── routing/                 # Role-based routing example
+│   │   ├── config.yaml
+│   │   └── README.md
+│   ├── search/                  # Web search agent example
+│   │   ├── config.yaml
+│   │   └── README.md
+│   └── wasm-sequential/         # WASM orchestrator example
+│       ├── config.yaml
+│       ├── main.go
+│       ├── Makefile
+│       └── README.md
 ├── internal/
 │   ├── compreg/
-│   │   └── compreg.go          # Global component register (shared map)
+│   │   └── compreg.go           # Global component register (shared map)
 │   ├── config/
-│   │   └── config.go           # Config file loader (thin wrapper)
+│   │   └── config.go            # Config file loader (thin wrapper)
 │   ├── console/
-│   │   └── console.go          # Custom console with @file attachment syntax
+│   │   └── console.go           # Custom console with @file attachment syntax
 │   ├── auth/
-│   │   └── verifier.go         # JWT RS256 token verification and middleware
+│   │   └── verifier.go          # JWT RS256 token verification and middleware
 │   ├── memory/
-│   │   └── mem2db.go           # Database-backed memory service (GORM)
-│   ├── routing/                # Role-based routing agent
-│   │   ├── routing.go          # Routing agent type (role→agent mapping)
-│   │   └── tools.go            # UserDB tool type (GORM user profiles)
+│   │   └── mem2db.go            # Database-backed memory service (GORM)
+│   ├── routing/                 # Role-based routing agent
+│   │   ├── routing.go           # Routing agent type (role→agent mapping)
+│   │   └── tools.go             # UserDB tool type (GORM user profiles)
 │   ├── userdb/
-│   │   └── userdb.go           # User profile database (GORM, JSONB)
-│   ├── wasm/                   # WASM extension (Wassette)
-│   │   ├── wasm.go             # Wasm agent type (wazero runtime, sub-agent host fns)
-│   │   ├── tool.go             # Wasm tool type (registry integration, per-invocation isolation)
-│   │   ├── policy.go           # Security policy engine (FS sandbox, domain allow-list, memory limits)
-│   │   ├── abi.go              # Component bridge ABI (alloc/run_tool/free linear memory protocol)
-│   │   ├── cache.go            # Compilation cache (wazero disk-backed) + bytecode cache
-│   │   ├── oci.go              # OCI registry puller (regclient, digest-based disk cache)
-│   │   └── host_net.go         # Guarded HTTP host functions (domain-checked http_fetch)
-│   └── registry/               # Unified registry (config, components, instances)
-│       ├── registry.go         # Instance cache with generic Get[T]
-│       ├── config.go           # Config types and YAML parsing
-│       ├── compreg.go          # Component type registration and factories
-│       ├── launcher.go         # Launcher config builder (session, memory)
-│       ├── models.go           # Built-in model providers (Gemini, OpenAI)
-│       ├── ollama.go           # Ollama provider (official OpenAI SDK)
-│       ├── agents.go           # Built-in agent types (llm, sequential, etc.)
-│       └── tools.go            # Tool type registration and built-in tools
-├── pkg/
-│   └── fhir/
-│       └── types.go            # FHIR R5 Go type definitions
+│   │   └── userdb.go            # User profile database (GORM, JSONB)
+│   ├── wasm/                    # WASM extension (wazero runtime)
+│   │   ├── wasm.go              # Wasm agent type (sub-agent host fns)
+│   │   ├── tool.go              # Wasm tool type (per-invocation isolation)
+│   │   ├── policy.go            # Security policy engine (FS sandbox, domain allow-list)
+│   │   ├── abi.go               # Component bridge ABI (alloc/run_tool/free)
+│   │   ├── cache.go             # Compilation cache (wazero disk-backed)
+│   │   ├── oci.go               # OCI registry puller (regclient, digest cache)
+│   │   └── host_net.go          # Guarded HTTP host functions
+│   └── registry/                # Unified registry (config, components, instances)
+│       ├── registry.go          # Instance cache with generic Get[T]
+│       ├── config.go            # Config types and YAML parsing
+│       ├── compreg.go           # Component type registration and factories
+│       ├── launcher.go          # Launcher config builder (session, memory)
+│       ├── models.go            # Built-in model providers (Gemini, OpenAI)
+│       ├── ollama.go            # Ollama provider (official OpenAI SDK)
+│       ├── agents.go            # Built-in agent types (llm, sequential, etc.)
+│       └── tools.go             # Tool type registration and built-in tools
+├── openai-proxy/                # OpenAI-compatible API proxy
+│   ├── main.go
+│   └── config.yaml
 ├── go.mod
 ├── go.sum
-├── AGENTS.md                   # This file
-└── README.md                   # Project documentation
+├── AGENTS.md                    # This file
+└── README.md
 ```
 
 ## Code Conventions
@@ -143,7 +164,7 @@ tools:
 
 agents:
   MyAgent:
-    tools: [my_tool]  # attach tools to agent
+    tools: [my_tool]
 ```
 
 ```go
@@ -166,7 +187,7 @@ tools:
       user_id: {type: string, required: true}
     db:
       driver: postgres
-      dsn: postgres://user:pass@localhost/medagent
+      dsn: postgres://user:pass@localhost/mydb
       auto_migrate: true
     admin_users: [admin1, admin2]
 ```
@@ -182,21 +203,17 @@ Operations: `get_profile`, `create_user`, `update_status`, `update_roles`, `upda
 The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
 
 ```go
-import "github.com/innomon/med-agent/internal/registry"
+import "github.com/innomon/agentic/internal/registry"
 
-// Define config struct with custom fields
 type MyAgentConfig struct {
     registry.AgentBase `yaml:",inline"`
     CustomField string `yaml:"custom_field"`
 }
 
-// Optional: implement Validate() for validation
 func (c *MyAgentConfig) Validate() error { return nil }
 
 func init() {
     registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
-        // cfg is fully typed - access cfg.CustomField directly
-        // tools.GetMultiple(ctx, names) returns ([]tool.Tool, error)
         return myCustomAgent, nil
     })
 }
@@ -214,45 +231,37 @@ Specify type in config:
 ```yaml
 agents:
   MyAgent:
-    type: myType  # omit for default "llm"
+    type: myType
     description: "..."
-    custom_field: "value"  # custom fields defined by component
+    custom_field: "value"
 
   MyWorkflow:
     type: sequential
     description: "Run agents in order"
-    sub_agents:
-      - Agent1
-      - Agent2
+    sub_agents: [Agent1, Agent2]
 
   MyLoop:
     type: loop
     description: "Iterative refinement"
-    max_iterations: 3  # 0 = run until escalation
-    sub_agents:
-      - RefineAgent
+    max_iterations: 3
+    sub_agents: [RefineAgent]
 
   MyRouter:
     type: routing
-    description: "Route users by role"
     model: gemini-flash
     admin_users: [admin1]
     role_routes:
       admin: AdminAgent
-      farmer: FarmerAgent
+      user: UserAgent
       anonymous: PublicAgent
     tools: [get_user_profile]
-    sub_agents:
-      - AdminAgent
-      - FarmerAgent
-      - PublicAgent
+    sub_agents: [AdminAgent, UserAgent, PublicAgent]
 
   MyWasmAgent:
     type: wasm
     description: "Run a WebAssembly module as an agent"
     module_path: ./plugins/my_agent.wasm
-    sub_agents:
-      - SubAgent1
+    sub_agents: [SubAgent1]
 ```
 
 ## Wasm Tools
@@ -264,24 +273,19 @@ tools:
   my_wasm_tool:
     type: wasm
     description: Run a sandboxed WASM tool
-    module_path: ./plugins/tool.wasm    # local file
+    module_path: ./plugins/tool.wasm
     security:
-      allowed_paths: [/data/input]      # filesystem sandbox (read-only mounts)
-      allowed_domains: [api.example.com, "*.internal.com"]  # network allow-list
-      memory_max_pages: 256             # memory limit (default: 256 = 16MB)
+      allowed_paths: [/data/input]
+      allowed_domains: [api.example.com, "*.internal.com"]
+      memory_max_pages: 256
 
   oci_wasm_tool:
     type: wasm
     description: WASM tool from OCI registry
-    oci_ref: ghcr.io/myorg/my-tool:latest  # OCI artifact reference
-    cache_dir: /tmp/wasm-cache             # optional OCI cache directory
+    oci_ref: ghcr.io/myorg/my-tool:latest
+    cache_dir: /tmp/wasm-cache
     security:
       allowed_domains: [api.example.com]
-
-agents:
-  MyAgent:
-    model: gemini-flash
-    tools: [my_wasm_tool]  # attach wasm tools to agents
 ```
 
 | Field | Description | Required |
@@ -316,7 +320,7 @@ Wasm agents additionally have access to sub-agent host functions:
 Register model providers with custom config schemas:
 
 ```go
-import "github.com/innomon/med-agent/internal/registry"
+import "github.com/innomon/agentic/internal/registry"
 
 type MyProviderConfig struct {
     registry.ModelBase `yaml:",inline"`
@@ -332,16 +336,12 @@ func init() {
 
 ## Session Configuration
 
-Session stores active conversation state. If omitted or set to `inmemory`, in-memory storage is used. Set `provider: database` for persistent storage via GORM, or `provider: vertexai` for Vertex AI.
-
-Configure in `config/config.yaml`:
-
 ```yaml
 session:
   provider: database
-  driver: postgres          # Required: postgres or sqlite
-  dsn: postgres://user:pass@localhost/medagent  # Required: connection string
-  auto_migrate: true        # Optional: auto-create/update tables
+  driver: postgres
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
 ```
 
 | Field | Description | Required |
@@ -356,16 +356,12 @@ session:
 
 ## Memory Configuration
 
-Memory stores agent conversation history. If omitted or set to `inmemory`, in-memory storage is used. Set `provider: database` for persistent storage via GORM.
-
-Configure in `config/config.yaml`:
-
 ```yaml
 memory:
   provider: database
-  driver: postgres          # Required: postgres or sqlite
-  dsn: postgres://user:pass@localhost/medagent  # Required: connection string
-  auto_migrate: true        # Optional: auto-create/update tables
+  driver: postgres
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
 ```
 
 | Field | Description | Required |
@@ -377,16 +373,14 @@ memory:
 
 ## Auth Configuration
 
-JWT authentication protects API endpoints when configured. Tokens use RS256 signing. If omitted, no authentication is applied.
-
-Configure in `config/config.yaml`:
+JWT authentication protects API endpoints when configured. Tokens use RS256 signing.
 
 ```yaml
 auth:
   jwt:
-    public_key_path: secrets/jwt_public.pem  # Path to RSA public key
-    issuer: whatsadk-gateway                 # Expected token issuer
-    audience: adk-agent                      # Expected token audience
+    public_key_path: secrets/jwt_public.pem
+    issuer: my-gateway
+    audience: agentic
 ```
 
 | Field | Description | Required |
@@ -411,13 +405,6 @@ if claims != nil {
 }
 ```
 
-## FHIR Coding Systems
-
-- **RxNorm**: Medications (`http://www.nlm.nih.gov/research/umls/rxnorm`)
-- **LOINC**: Lab tests, document types (`http://loinc.org`)
-- **SNOMED CT**: Clinical findings, body sites (`http://snomed.info/sct`)
-- **UCUM**: Units of measure (`http://unitsofmeasure.org`)
-
 ## Environment Variables
 
 - `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
@@ -426,24 +413,21 @@ if claims != nil {
 
 ## Model Configuration
 
-Models support the following configuration fields in `config/config.yaml`:
-
 ```yaml
 models:
   my-model:
-    provider: gemini          # Required: gemini, openai, or ollama
-    model_id: gemini-2.0-flash # Required: provider-specific model ID
-    default: true             # Optional: set as default model
-    api_key: ${API_KEY}       # Optional: API key (uses env var if omitted)
-    backend: vertexai         # Optional (Gemini): gemini or vertexai
-    project: my-gcp-project   # Optional (Vertex AI): GCP project ID
-    location: us-central1     # Optional (Vertex AI): GCP region
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+    api_key: ${API_KEY}
+    backend: vertexai
+    project: my-gcp-project
+    location: us-central1
 
-  # Ollama local model example
   ollama-llama:
     provider: ollama
-    model_id: llama3.2        # Model name in Ollama
-    base_url: http://localhost:11434/v1  # Required for Ollama
+    model_id: llama3.2
+    base_url: http://localhost:11434/v1
 ```
 
 ### Ollama Provider

@@ -20,7 +20,7 @@ import (
 )
 
 // Launcher implements a custom console with file attachment syntax.
-// Usage: ./med-agent console
+// Usage: ./agentic console
 // Then type messages with @/path/to/file syntax to attach files.
 type Launcher struct {
 	flags  *flag.FlagSet
@@ -48,11 +48,11 @@ func (l *Launcher) Keyword() string {
 
 var help = `Console mode with file attachment support.
 
-Usage: ./med-agent console [options]
+Usage: ./agentic console [options]
 
 Attach files using @/path/to/file syntax:
-  User -> Create FHIR from this lab report @./document.pdf
-  User -> Extract prescription @./prescription.png @./notes.txt
+  User -> Process this document @./document.pdf
+  User -> Analyze these files @./image.png @./notes.txt
 
 Commands:
   /help                 Show this help message
@@ -113,7 +113,7 @@ type commandHandler func(cc *consoleContext, args string) (*commandResult, error
 func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 	const (
 		userID  = "console_user"
-		appName = "MedAgent"
+		appName = "Agentic"
 	)
 
 	sessionService := cfg.SessionService
@@ -162,8 +162,8 @@ func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 	reader := bufio.NewReader(os.Stdin)
 	filePattern := regexp.MustCompile(`@([^\s]+)`)
 
-	fmt.Println("MedAgent Console (attach files with @/path/to/file syntax)")
-	fmt.Println("Example: Create FHIR from this @./labtest.pdf")
+	fmt.Println("Agentic Console (attach files with @/path/to/file syntax)")
+	fmt.Println("Example: Analyze this document @./document.pdf")
 	fmt.Println("Type '/help' for commands, '/exit' to quit.")
 
 	for {

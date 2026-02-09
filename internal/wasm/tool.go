@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/innomon/med-agent/internal/registry"
+	"github.com/innomon/agentic/internal/registry"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"

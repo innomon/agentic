@@ -10,7 +10,7 @@ proxy:
     # Base URL of the ADK server
     endpoint: http://localhost:8080
     # ADK app name to route requests to
-    app_name: MedAgent
+    app_name: Agentic
 
   # Default values for requests
   defaults:
