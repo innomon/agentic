@@ -1,0 +1,32 @@
+<svg width="800" height="450" viewBox="0 0 800 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="white"/>
+  
+  <text x="300" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="black">User Input</text>
+  <path d="M300 40V70" stroke="black" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <rect x="150" y="80" width="300" height="100" rx="8" stroke="black" stroke-width="2" fill="#f4f4f4"/>
+  <text x="165" y="115" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black">Gnogent (GnoVM)</text>
+  <text x="165" y="140" font-family="monospace" font-size="14" fill="#333">type: gnogent-</text>
+  <text x="165" y="160" font-family="monospace" font-size="14" fill="#333">deterministic</text>
+  
+  <path d="M450 130H480" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="490" y="125" font-family="Arial, sans-serif" font-size="14" fill="#444">← Deterministic: mood,</text>
+  <text x="505" y="145" font-family="Arial, sans-serif" font-size="14" fill="#444">friendship, preferences</text>
+  
+  <path d="M300 180V270" stroke="black" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="310" y="235" font-family="Arial, sans-serif" font-size="14" fill="black">sub-agent call</text>
+  
+  <rect x="150" y="280" width="300" height="100" rx="8" stroke="black" stroke-width="2" fill="#f4f4f4"/>
+  <text x="165" y="315" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="black">ChatAgent</text>
+  <text x="165" y="345" font-family="Arial, sans-serif" font-size="16" fill="#333">(Gemini)</text>
+  
+  <path d="M450 330H480" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="490" y="325" font-family="Arial, sans-serif" font-size="14" fill="#444">← LLM: generates response</text>
+  <text x="505" y="345" font-family="Arial, sans-serif" font-size="14" fill="#444">using GnoVM context</text>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+    </marker>
+  </defs>
+</svg>
