@@ -5,6 +5,7 @@ go 1.24.9
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/openai/openai-go/v3 v3.16.0
+	github.com/tetratelabs/wazero v1.11.0
 	google.golang.org/adk v0.2.0
 	google.golang.org/genai v1.36.0
 	gopkg.in/yaml.v3 v3.0.1

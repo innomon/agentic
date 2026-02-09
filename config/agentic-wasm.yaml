@@ -1,0 +1,49 @@
+# AgenticWasm - Sample configuration demonstrating WASM agent plugins
+#
+# This configuration uses a WASM-based sequential agent to orchestrate
+# two LLM sub-agents. The WASM module controls the execution order,
+# replicating sequential agent behavior via a WebAssembly plugin.
+#
+# Build the WASM module first:
+#   cd examples/wasm-sequential && make build
+#
+# Run with this config:
+#   ./med-agent config/agentic-wasm.yaml console
+
+root_agent: WasmOrchestrator
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  WasmOrchestrator:
+    type: wasm
+    description: A WASM-based sequential orchestrator that runs sub-agents in order
+    module_path: examples/wasm-sequential/sequential.wasm
+    sub_agents:
+      - AnalyzerAgent
+      - SummarizerAgent
+
+  AnalyzerAgent:
+    description: Analyzes the input document and extracts key information
+    model: gemini-flash
+    instruction: |
+      You are a document analyzer. Examine the provided text and extract:
+      - Key topics and themes
+      - Important entities (people, organizations, dates)
+      - Document type and structure
+
+      Provide a structured analysis of the document.
+
+  SummarizerAgent:
+    description: Summarizes the analysis into a concise report
+    model: gemini-flash
+    instruction: |
+      You are a summarizer. Take the analysis provided and create a concise,
+      well-structured summary report. Include:
+      - Executive summary (2-3 sentences)
+      - Key findings
+      - Recommendations if applicable

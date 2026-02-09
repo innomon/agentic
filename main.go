@@ -11,6 +11,7 @@ import (
 	"github.com/innomon/med-agent/internal/console"
 	"github.com/innomon/med-agent/internal/registry"
 	_ "github.com/innomon/med-agent/internal/routing"
+	_ "github.com/innomon/med-agent/internal/wasm"
 
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"
