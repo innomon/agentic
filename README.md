@@ -195,6 +195,7 @@ agents:
 | `loop` | Repeatedly executes sub-agents |
 | `routing` | Role-based user routing with disambiguation |
 | `wasm` | WebAssembly agent via wazero |
+| `gnogent-deterministic` | Deterministic GnoVM agent (no LLM) |
 
 #### Workflow Examples
 
@@ -249,6 +250,32 @@ Routing logic:
 5. Unknown users → `anonymous` agent or reject
 
 See [examples/routing/](examples/routing/) for a complete example.
+
+#### Deterministic GnoVM Agent
+
+Runs agents entirely through GnoVM logic — no LLM required. User input is processed deterministically through the GnoVM brain, which manages mood, friendship, and personality state persisted to Postgres.
+
+```yaml
+agents:
+  Gnogent:
+    type: gnogent-deterministic
+    description: Stateful deterministic agent powered by GnoVM
+    database:
+      dsn: postgres://user:pass@localhost/mydb
+      auto_migrate: true
+    gnovm:
+      source_file: ./gno/agent.gno
+      pkg_path: gno/agent
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `database.dsn` | PostgreSQL connection string | Yes |
+| `database.auto_migrate` | Auto-create schema on startup | No |
+| `gnovm.source_file` | Path to `.gno` source file | Yes |
+| `gnovm.pkg_path` | GnoVM package path (default: `gno/agent`) | No |
+
+Each turn executes: thaw (restore VM state from DB) → SyncState (evolve mood/personality) → GetSystemContext (produce response) → AddTurn (archive conversation) → freeze (persist VM state to DB).
 
 ### Tools
 
@@ -541,6 +568,7 @@ agentic/
 │   ├── compreg/                     # Component register
 │   ├── config/                      # Config file loader
 │   ├── console/                     # Console with @file attachments
+│   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
 │   ├── memory/                      # Database-backed memory (GORM)
 │   ├── registry/                    # Unified registry (agents, models, tools)
 │   ├── routing/                     # Role-based routing agent

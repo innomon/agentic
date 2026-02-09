@@ -104,6 +104,7 @@ agentic/
 │   │   └── config.go            # Config file loader (thin wrapper)
 │   ├── console/
 │   │   └── console.go           # Custom console with @file attachment syntax
+│   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
 │   ├── auth/
 │   │   └── verifier.go          # JWT RS256 token verification and middleware
 │   ├── memory/
@@ -226,6 +227,7 @@ Built-in types:
 - `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
 - `routing` - Role-based routing agent with user profile lookup and disambiguation
 - `wasm` - WebAssembly agent via wazero runtime with sub-agent host functions
+- `gnogent-deterministic` - Deterministic GnoVM agent via `agent.New()` (no LLM, state persisted to Postgres)
 
 Specify type in config:
 ```yaml
@@ -262,6 +264,16 @@ agents:
     description: "Run a WebAssembly module as an agent"
     module_path: ./plugins/my_agent.wasm
     sub_agents: [SubAgent1]
+
+  MyDeterministicAgent:
+    type: gnogent-deterministic
+    description: "Stateful deterministic agent powered by GnoVM"
+    database:
+      dsn: postgres://user:pass@localhost/mydb
+      auto_migrate: true
+    gnovm:
+      source_file: ./gno/agent.gno
+      pkg_path: gno/agent
 ```
 
 ## Wasm Tools
