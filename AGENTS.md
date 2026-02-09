@@ -92,6 +92,14 @@ med-agent/
 │   │   └── tools.go            # UserDB tool type (GORM user profiles)
 │   ├── userdb/
 │   │   └── userdb.go           # User profile database (GORM, JSONB)
+│   ├── wasm/                   # WASM extension (Wassette)
+│   │   ├── wasm.go             # Wasm agent type (wazero runtime, sub-agent host fns)
+│   │   ├── tool.go             # Wasm tool type (registry integration, per-invocation isolation)
+│   │   ├── policy.go           # Security policy engine (FS sandbox, domain allow-list, memory limits)
+│   │   ├── abi.go              # Component bridge ABI (alloc/run_tool/free linear memory protocol)
+│   │   ├── cache.go            # Compilation cache (wazero disk-backed) + bytecode cache
+│   │   ├── oci.go              # OCI registry puller (regclient, digest-based disk cache)
+│   │   └── host_net.go         # Guarded HTTP host functions (domain-checked http_fetch)
 │   └── registry/               # Unified registry (config, components, instances)
 │       ├── registry.go         # Instance cache with generic Get[T]
 │       ├── config.go           # Config types and YAML parsing
@@ -200,6 +208,7 @@ Built-in types:
 - `parallel` - Executes sub-agents concurrently via `parallelagent.New()`
 - `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
 - `routing` - Role-based routing agent with user profile lookup and disambiguation
+- `wasm` - WebAssembly agent via wazero runtime with sub-agent host functions
 
 Specify type in config:
 ```yaml
@@ -237,7 +246,70 @@ agents:
       - AdminAgent
       - FarmerAgent
       - PublicAgent
+
+  MyWasmAgent:
+    type: wasm
+    description: "Run a WebAssembly module as an agent"
+    module_path: ./plugins/my_agent.wasm
+    sub_agents:
+      - SubAgent1
 ```
+
+## Wasm Tools
+
+The `wasm` tool type executes sandboxed WebAssembly modules as ADK tools. Modules are loaded from local files or OCI registries. Each invocation creates a fresh wazero runtime for complete state isolation.
+
+```yaml
+tools:
+  my_wasm_tool:
+    type: wasm
+    description: Run a sandboxed WASM tool
+    module_path: ./plugins/tool.wasm    # local file
+    security:
+      allowed_paths: [/data/input]      # filesystem sandbox (read-only mounts)
+      allowed_domains: [api.example.com, "*.internal.com"]  # network allow-list
+      memory_max_pages: 256             # memory limit (default: 256 = 16MB)
+
+  oci_wasm_tool:
+    type: wasm
+    description: WASM tool from OCI registry
+    oci_ref: ghcr.io/myorg/my-tool:latest  # OCI artifact reference
+    cache_dir: /tmp/wasm-cache             # optional OCI cache directory
+    security:
+      allowed_domains: [api.example.com]
+
+agents:
+  MyAgent:
+    model: gemini-flash
+    tools: [my_wasm_tool]  # attach wasm tools to agents
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `module_path` | Path to local `.wasm` file | Yes (or `oci_ref`) |
+| `oci_ref` | OCI registry reference | Yes (or `module_path`) |
+| `cache_dir` | Directory for OCI blob cache | No |
+| `security.allowed_paths` | Absolute paths mounted read-only into guest | No |
+| `security.allowed_domains` | Domains allowed for `http_fetch` host function | No |
+| `security.memory_max_pages` | Max wasm memory pages (default: 256 = 16MB) | No |
+
+### Wasm Module ABI
+
+Wasm tool modules must export:
+- `alloc(size i32) -> i32` — allocate a buffer in guest memory
+- `run_tool(input_ptr i32, input_len i32) -> i64` — run the tool; returns packed `(out_ptr << 32 | out_len)`
+- `free(ptr i32, size i32)` (optional) — free guest memory
+
+Host functions available to modules:
+- `env.log_msg(ptr i32, len i32)` — log a message
+- `env.http_fetch(req_ptr i32, req_len i32) -> i64` — guarded HTTP request (JSON in/out, domain-checked)
+
+### Wasm Agent Host Functions
+
+Wasm agents additionally have access to sub-agent host functions:
+- `env.subagent_count() -> i32` — number of sub-agents
+- `env.subagent_name(index i32, buf_ptr i32, buf_cap i32) -> i32` — get sub-agent name
+- `env.run_subagent(index i32) -> i32` — execute a sub-agent
 
 ## Custom Model Providers
 

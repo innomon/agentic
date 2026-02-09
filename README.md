@@ -14,6 +14,7 @@ A medical document transcription agent built with Google's [ADK-Go](https://gith
 - **Role-Based Routing**: Route users to agents based on database-stored roles with admin config override and contextual disambiguation
 - **User Profile Database**: GORM-backed user management with JSONB profile/metadata, status tracking, and admin role protection
 - **Extensible Tools**: Define custom tools in YAML with Go handlers for agent capabilities
+- **WebAssembly Extensions**: Sandboxed WASM tool and agent types via wazero with security policy engine, OCI registry support, and per-invocation isolation
 
 ## Architecture
 
@@ -456,6 +457,7 @@ agents:
 | `parallel` | Executes sub-agents concurrently |
 | `loop` | Repeatedly executes sub-agents |
 | `routing` | Role-based user routing with disambiguation |
+| `wasm` | WebAssembly agent via wazero with sub-agent host functions |
 
 #### Workflow Agent Examples
 
@@ -723,6 +725,69 @@ The user profile schema stores:
 
 Admin role protection: the `update_roles` operation rejects any attempt to set the `admin` role; admin access is exclusively controlled via the `admin_users` config list.
 
+#### Wasm Tool Type
+
+The `wasm` tool type executes sandboxed WebAssembly modules as ADK tools. Modules are loaded from local files or OCI registries. Each invocation creates a fresh wazero runtime for complete state isolation.
+
+```yaml
+tools:
+  my_wasm_tool:
+    type: wasm
+    description: Run a sandboxed WASM tool
+    module_path: ./plugins/tool.wasm
+    security:
+      allowed_paths: [/data/input]
+      allowed_domains: [api.example.com, "*.internal.com"]
+      memory_max_pages: 256
+
+  oci_wasm_tool:
+    type: wasm
+    description: WASM tool from OCI registry
+    oci_ref: ghcr.io/myorg/my-tool:latest
+    cache_dir: /tmp/wasm-cache
+    security:
+      allowed_domains: [api.example.com]
+
+agents:
+  MyAgent:
+    model: gemini-flash
+    tools: [my_wasm_tool]
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `module_path` | Path to local `.wasm` file | Yes (or `oci_ref`) |
+| `oci_ref` | OCI registry reference | Yes (or `module_path`) |
+| `cache_dir` | Directory for OCI blob cache | No |
+| `security.allowed_paths` | Absolute paths mounted read-only into guest | No |
+| `security.allowed_domains` | Domains allowed for `http_fetch` host function | No |
+| `security.memory_max_pages` | Max wasm memory pages (default: 256 = 16MB) | No |
+
+**Security model:**
+- Filesystem access is deny-by-default; only paths in `allowed_paths` are mounted read-only via wazero's `FSConfig`
+- Network access is guarded by host function wrappers that check URLs against `allowed_domains` before making HTTP requests
+- Memory is capped at `memory_max_pages` (default 256 = 16MB) via `WithMemoryLimitPages`
+- Private/loopback addresses are always blocked
+
+**Wasm module ABI:** Tool modules must export `alloc(size) -> ptr`, `run_tool(ptr, len) -> i64` (packed `out_ptr << 32 | out_len`), and optionally `free(ptr, size)`. Host functions `env.log_msg` and `env.http_fetch` are available.
+
+#### Wasm Agent Type
+
+The `wasm` agent type runs a WebAssembly module as an ADK agent with access to sub-agents via host functions:
+
+```yaml
+agents:
+  MyWasmAgent:
+    type: wasm
+    description: "Run a WebAssembly module as an agent"
+    module_path: ./plugins/my_agent.wasm
+    sub_agents:
+      - SubAgent1
+      - SubAgent2
+```
+
+The module must export an `execute() -> i32` function. Host functions available: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.log_msg`.
+
 ### Custom Model Providers
 
 Register custom model providers with their own config schema:
@@ -919,6 +984,14 @@ med-agent/
 │   │   └── tools.go            # UserDB tool type (GORM user profiles)
 │   ├── userdb/
 │   │   └── userdb.go           # User profile database (GORM, JSONB)
+│   ├── wasm/                   # WASM extension (Wassette)
+│   │   ├── wasm.go             # Wasm agent type (wazero runtime, sub-agent host fns)
+│   │   ├── tool.go             # Wasm tool type (registry integration, per-invocation isolation)
+│   │   ├── policy.go           # Security policy engine (FS sandbox, domain allow-list, memory limits)
+│   │   ├── abi.go              # Component bridge ABI (alloc/run_tool/free linear memory protocol)
+│   │   ├── cache.go            # Compilation cache (wazero disk-backed) + bytecode cache
+│   │   ├── oci.go              # OCI registry puller (regclient, digest-based disk cache)
+│   │   └── host_net.go         # Guarded HTTP host functions (domain-checked http_fetch)
 │   └── registry/               # Unified registry (config, components, instances)
 │       ├── registry.go         # Instance cache with generic Get[T]
 │       ├── config.go           # Config types and YAML parsing

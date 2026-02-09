@@ -57,7 +57,9 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 				yield:  yield,
 			}
 
-			rt := wazero.NewRuntime(invCtx)
+			rtConfig := wazero.NewRuntimeConfig().
+				WithCompilationCache(getCompilationCache())
+			rt := wazero.NewRuntimeWithConfig(invCtx, rtConfig)
 			defer rt.Close(invCtx)
 
 			wasi_snapshot_preview1.MustInstantiate(invCtx, rt)
