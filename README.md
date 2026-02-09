@@ -2,6 +2,8 @@
 
 A config-driven agentic framework built on Google's [ADK-Go](https://github.com/google/adk-go). Define agents, models, tools, and workflows entirely in YAML — extend with WebAssembly plugins, no recompilation needed.
 
+**Work In Progress: Do not use yet**
+
 ## Features
 
 - **Config-Driven**: All agents, models, tools, and workflows defined in YAML
