@@ -3,8 +3,10 @@ module github.com/innomon/agentic
 go 1.24.9
 
 require (
+	github.com/gnolang/gno v0.0.0-20260205104136-e696bc2afd6c
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/openai/openai-go/v3 v3.16.0
+	github.com/regclient/regclient v0.11.1
 	github.com/tetratelabs/wazero v1.11.0
 	google.golang.org/adk v0.2.0
 	google.golang.org/genai v1.36.0
@@ -15,6 +17,13 @@ require (
 )
 
 require (
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
+	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
+	github.com/cosmos/gogoproto v1.7.0 // indirect
+	github.com/cosmos/ics23/go v0.11.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/google/jsonschema-go v0.3.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -26,7 +35,8 @@ require (
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/regclient/regclient v0.11.1 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sashabaranov/go-openai v1.41.2 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
@@ -34,6 +44,10 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 )
 
 require (
