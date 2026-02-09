@@ -1,0 +1,54 @@
+# Gnogent Deterministic Agent Example
+# Usage: ./agentic examples/gnogent/config.yaml console
+#
+# Demonstrates a stateful GnoVM agent that delegates to LLM sub-agents.
+# The root agent runs deterministic Gno logic (mood, friendship, memory)
+# and hands off to an LLM sub-agent for natural language responses.
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+session:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost:5432/gnogent?sslmode=disable
+  auto_migrate: true
+
+root_agent: Gnogent
+
+agents:
+  Gnogent:
+    type: gnogent-deterministic
+    description: >
+      Stateful personality agent powered by GnoVM. Tracks mood, friendship,
+      and user preferences deterministically. Delegates to a conversational
+      sub-agent for generating natural language replies.
+    database:
+      dsn: postgres://user:pass@localhost:5432/gnogent?sslmode=disable
+      auto_migrate: true
+    gnovm:
+      source_file: ./internal/gnogent/gno/agent.gno
+      pkg_path: gno/agent
+    sub_agents:
+      - ChatAgent
+
+  ChatAgent:
+    description: >
+      Conversational LLM agent that receives system context from the GnoVM
+      (mood, friendship level, known preferences) and produces a response.
+    model: gemini-flash
+    instruction: |
+      You are Gnogent, a witty and supportive AI companion.
+
+      Your internal state (mood, friendship score, user preferences) is
+      managed by a deterministic engine and injected into your system context.
+      Use that context to shape your tone, references, and personality.
+
+      Rules:
+      - If friendship is below 20, be polite but reserved.
+      - If friendship is above 60, be warm, use humor, and reference past likes.
+      - Match your energy to the current mood vibe (e.g., "Nostalgic" = reflective tone).
+      - Never fabricate preferences the user hasn't expressed.
