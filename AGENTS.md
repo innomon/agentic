@@ -105,6 +105,10 @@ agentic/
 │   ├── console/
 │   │   └── console.go           # Custom console with @file attachment syntax
 │   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
+│   │   ├── storage/
+│   │   │   ├── model.go             # GORM model (AgentSession)
+│   │   │   ├── session_service.go   # GnoVM-backed session.Service (GORM)
+│   │   │   └── memory_service.go    # GnoVM-backed memory.Service (GORM)
 │   ├── auth/
 │   │   └── verifier.go          # JWT RS256 token verification and middleware
 │   ├── memory/
@@ -358,13 +362,21 @@ session:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, or `vertexai` | No |
+| `provider` | `inmemory` (default), `database`, `gnogent`, or `vertexai` | No |
 | `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
 | `dsn` | Database connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create/update schema on startup | No |
 | `project` | GCP project ID | Yes (for `vertexai`) |
 | `location` | GCP region | Yes (for `vertexai`) |
 | `reasoning_engine` | Reasoning Engine resource name | Yes (for `vertexai`) |
+
+```yaml
+# Gnogent provider (Postgres-backed with GnoVM session tables):
+session:
+  provider: gnogent
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
+```
 
 ## Memory Configuration
 
@@ -378,10 +390,18 @@ memory:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default) or `database` | No |
+| `provider` | `inmemory` (default), `database`, or `gnogent` | No |
 | `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
 | `dsn` | Database connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create/update schema on startup | No |
+
+```yaml
+# Gnogent provider (Postgres-backed with GnoVM memory tables):
+memory:
+  provider: gnogent
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
+```
 
 ## Auth Configuration
 

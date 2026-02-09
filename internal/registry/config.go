@@ -97,6 +97,11 @@ type MemoryConfig struct {
 	AutoMigrate bool   `yaml:"auto_migrate"`
 }
 
+type GnogentServiceConfig struct {
+	DSN         string `yaml:"dsn"`
+	AutoMigrate bool   `yaml:"auto_migrate"`
+}
+
 type AuthConfig struct {
 	JWT *JWTConfig `yaml:"jwt"`
 }

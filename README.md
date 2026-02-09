@@ -448,13 +448,21 @@ session:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, or `vertexai` | No |
+| `provider` | `inmemory` (default), `database`, `gnogent`, or `vertexai` | No |
 | `driver` | `postgres` or `sqlite` | Yes (for `database`) |
 | `dsn` | Connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create schema | No |
 | `project` | GCP project ID | Yes (for `vertexai`) |
 | `location` | GCP region | Yes (for `vertexai`) |
 | `reasoning_engine` | Reasoning Engine resource | Yes (for `vertexai`) |
+
+```yaml
+# Gnogent provider (Postgres-backed with GnoVM session tables):
+session:
+  provider: gnogent
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
+```
 
 ### Memory Configuration
 
@@ -470,10 +478,18 @@ memory:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default) or `database` | No |
+| `provider` | `inmemory` (default), `database`, or `gnogent` | No |
 | `driver` | `postgres` or `sqlite` | Yes (for `database`) |
 | `dsn` | Connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create schema | No |
+
+```yaml
+# Gnogent provider (Postgres-backed with GnoVM memory tables):
+memory:
+  provider: gnogent
+  dsn: postgres://user:pass@localhost/mydb
+  auto_migrate: true
+```
 
 ### Authentication
 
