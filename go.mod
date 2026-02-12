@@ -1,6 +1,6 @@
 module github.com/innomon/agentic
 
-go 1.24.9
+go 1.24.13
 
 require (
 	github.com/gnolang/gno v0.0.0-20260205104136-e696bc2afd6c
@@ -63,7 +63,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/safehtml v0.1.0 // indirect
-	github.com/google/uuid v1.6.0 
+	github.com/google/uuid v1.6.0
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
