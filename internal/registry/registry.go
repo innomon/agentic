@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 	"sync"
 
@@ -24,6 +25,7 @@ type Registry struct {
 	items    map[string]any
 	loaders  map[reflect.Type]loader
 	building map[string]bool
+	closers  []io.Closer
 }
 
 func New(cfg *Config) *Registry {
@@ -39,6 +41,20 @@ func New(cfg *Config) *Registry {
 	}
 	return r
 }
+
+func (r *Registry) Close() error {
+	var errs []error
+	for _, c := range r.closers {
+		if err := c.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("errors while closing registry: %v", errs)
+	}
+	return nil
+}
+
 
 func typeOf[T any]() reflect.Type {
 	return reflect.TypeOf((*T)(nil)).Elem()

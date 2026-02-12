@@ -147,3 +147,33 @@ func createAgent(ctx context.Context, typeName, name string, cfg any, models Mod
 	}
 	return e.create(ctx, name, cfg, models, tools, sub)
 }
+
+// ProviderCreator defines the function signature for creating a provider service.
+type ProviderCreator[C any, S any] func(ctx context.Context, cfg *C) (S, error)
+
+// RegisterProvider registers a new provider creator for a specific service type.
+// serviceType should be "session", "memory", etc.
+func RegisterProvider[C any, S any](serviceType, providerName string, creator ProviderCreator[C, S]) {
+	key := fmt.Sprintf("%s:%s", serviceType, providerName)
+	compreg.Set(key, creator)
+}
+
+// CreateProvider instantiates a provider service from the registry.
+func CreateProvider[C any, S any](ctx context.Context, serviceType, providerName string, cfg *C) (S, error) {
+	key := fmt.Sprintf("%s:%s", serviceType, providerName)
+
+	var zero S
+	creatorAny, ok := compreg.Lookup[any](key)
+	if !ok {
+		return zero, fmt.Errorf("%s provider %q not found", serviceType, providerName)
+	}
+
+	creator, ok := creatorAny.(ProviderCreator[C, S])
+
+	                if !ok {
+
+	                        return zero, fmt.Errorf("internal error: invalid creator type for %s provider %q", serviceType, providerName)
+
+	                }
+
+	                return creator(ctx, cfg)}

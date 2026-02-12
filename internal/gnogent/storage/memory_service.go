@@ -41,9 +41,19 @@ func NewGnogentMemoryService(db *gorm.DB) *GnogentMemoryService {
 	return &GnogentMemoryService{db: db}
 }
 
+func (s *GnogentMemoryService) Close() error {
+	db, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	return db.Close()
+}
+
 func (s *GnogentMemoryService) AutoMigrate() error {
 	return s.db.AutoMigrate(&gnogentMemoryEntry{})
 }
+
+
 
 func (s *GnogentMemoryService) AddSession(ctx context.Context, curSession session.Session) error {
 	appName := curSession.AppName()

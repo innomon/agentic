@@ -60,6 +60,16 @@ func (s *GnogentSessionService) AutoMigrate() error {
 	return s.db.AutoMigrate(&gnogentSessionRow{}, &gnogentEventRow{})
 }
 
+func (s *GnogentSessionService) Close() error {
+	db, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	return db.Close()
+}
+
+
+
 func (s *GnogentSessionService) Create(ctx context.Context, req *session.CreateRequest) (*session.CreateResponse, error) {
 	if req.AppName == "" || req.UserID == "" {
 		return nil, fmt.Errorf("app_name and user_id are required, got app_name: %q, user_id: %q", req.AppName, req.UserID)
