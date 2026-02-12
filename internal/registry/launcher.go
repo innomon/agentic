@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"
@@ -28,6 +29,9 @@ func (r *Registry) BuildLauncherConfig(ctx context.Context) (*launcher.Config, e
 			return nil, fmt.Errorf("failed to create session service: %w", err)
 		}
 		cfg.SessionService = sessionSvc
+		if c, ok := sessionSvc.(io.Closer); ok {
+			r.closers = append(r.closers, c)
+		}
 	}
 
 	if r.cfg.Memory != nil {
@@ -36,7 +40,11 @@ func (r *Registry) BuildLauncherConfig(ctx context.Context) (*launcher.Config, e
 			return nil, fmt.Errorf("failed to create memory service: %w", err)
 		}
 		cfg.MemoryService = memorySvc
+		if c, ok := memorySvc.(io.Closer); ok {
+			r.closers = append(r.closers, c)
+		}
 	}
+
 
 	return cfg, nil
 }

@@ -168,7 +168,7 @@ func CreateProvider[C any, S any](ctx context.Context, serviceType, providerName
 		return zero, fmt.Errorf("%s provider %q not found", serviceType, providerName)
 	}
 
-	                creator, ok := creatorAny.(func(ctx context.Context, cfg *C) (S, error))
+	creator, ok := creatorAny.(ProviderCreator[C, S])
 
 	                if !ok {
 

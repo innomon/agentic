@@ -40,6 +40,14 @@ func main() {
 	}
 
 	reg := registry.New(cfg)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic: %v", r)
+		}
+		if err := reg.Close(); err != nil {
+			log.Printf("Error closing registry: %v", err)
+		}
+	}()
 
 	launcherConfig, err := reg.BuildLauncherConfig(ctx)
 	if err != nil {
