@@ -7,7 +7,7 @@
 models:
   gemini-flash:
     provider: gemini
-    model_id: gemini-2.0-flash
+    model_id: gemini-flash-lite-latest
     default: true
 
 session:
@@ -69,7 +69,7 @@ agents:
 
   ProductRecommendationAgent:
     description: Recommends organic farming products based on conversation context
-    model: gemini-flash
+    model: gemini-flash-lite-latest
     instruction: |
       You are an organic farming product recommendation specialist for India.
 

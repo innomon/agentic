@@ -1,0 +1,222 @@
+# Multi-Agent Memory Pipeline
+# Usage: ./agentic examples/mem-pipeline/config.yaml console
+#
+# Three-tier memory system (Episodic, Semantic, Procedural) with
+# Write-on-Exit ingestion and Read-on-Entry retrieval pipelines.
+#
+# Prerequisites:
+#   1. PostgreSQL with pgvector extension
+#   2. Run: go run examples/mem-pipeline/initdb/main.go
+#   3. Set GOOGLE_API_KEY
+
+root_agent: RetrievalPipeline
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-flash-lite-latest
+    default: true
+
+session:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost:5432/mem_pipeline?sslmode=disable
+  auto_migrate: true
+
+memory:
+  provider: database
+  driver: postgres
+  dsn: postgres://user:pass@localhost:5432/mem_pipeline?sslmode=disable
+  auto_migrate: true
+
+tools:
+  search_memory:
+    description: >
+      Search agent memories using vector similarity on content_embedding.
+      Returns the most relevant memories for the given query, user, and type.
+    parameters:
+      user_id:
+        type: string
+        description: The user ID to search memories for
+        required: true
+      query:
+        type: string
+        description: The search query text to match against memory content
+        required: true
+      memory_type:
+        type: string
+        description: "Filter by memory type: episodic, semantic, or procedural. Leave empty for all types."
+        required: false
+      limit:
+        type: integer
+        description: Maximum number of memories to return (default 5)
+        required: false
+
+  store_memory:
+    description: >
+      Store a new memory entry in the agent_memories table.
+      Automatically generates a content_embedding for vector search.
+    parameters:
+      user_id:
+        type: string
+        description: The user ID this memory belongs to
+        required: true
+      session_id:
+        type: string
+        description: The session ID where this memory was created
+        required: false
+      memory_type:
+        type: string
+        description: "Type of memory: episodic, semantic, or procedural"
+        required: true
+      content:
+        type: string
+        description: The memory content to store
+        required: true
+      metadata:
+        type: string
+        description: "JSON string of metadata (e.g. {\"consolidated\": false})"
+        required: false
+
+  purge_history:
+    description: >
+      Delete old episodic memories that have been consolidated or are older
+      than a given number of days.
+    parameters:
+      user_id:
+        type: string
+        description: The user ID whose episodic memories to purge
+        required: true
+      older_than_days:
+        type: integer
+        description: Delete episodic memories older than this many days (default 30)
+        required: false
+      consolidated_only:
+        type: boolean
+        description: If true, only delete memories marked as consolidated (default true)
+        required: false
+
+agents:
+  # --- Retrieval Pipeline (entry point) ---
+  RetrievalPipeline:
+    type: sequential
+    description: >
+      Read-on-Entry pipeline: loads context from memory, then runs the
+      primary assistant with that context.
+    sub_agents:
+      - ContextLoader
+      - PrimaryAssistant
+
+  ContextLoader:
+    description: >
+      Loads relevant memories for the current user before the primary
+      assistant responds. Queries the last 3 episodic memories plus all
+      relevant semantic and procedural memories.
+    model: gemini-flash
+    tools:
+      - search_memory
+    instruction: |
+      You are a context retrieval agent. Your job is to query the memory
+      database and assemble a "Context Block" for the primary assistant.
+
+      ## Steps
+
+      1. Identify the user_id from the conversation (ask if unknown).
+      2. Call `search_memory` three times:
+         - memory_type=episodic, limit=3  (recent episodes)
+         - memory_type=semantic, limit=10 (facts & preferences)
+         - memory_type=procedural, limit=5 (rules & workflows)
+      3. Format the results into a single Context Block:
+
+      ```
+      === CONTEXT BLOCK ===
+      [Episodic]
+      - ...
+
+      [Semantic]
+      - ...
+
+      [Procedural]
+      - ...
+      === END CONTEXT ===
+      ```
+
+      4. Output ONLY the Context Block. Do not answer the user's question.
+
+  PrimaryAssistant:
+    description: >
+      The main conversational assistant. Uses the retrieved context to
+      personalise responses and follow procedural rules.
+    model: gemini-flash
+    sub_agents:
+      - IngestionPipeline
+    instruction: |
+      You are a helpful, personalised assistant.
+
+      ## Context Usage
+
+      A ContextLoader agent has already retrieved a Context Block for this
+      user. Use it to:
+      - Address the user by name if known
+      - Respect stated preferences (language, frameworks, formats)
+      - Follow any Procedural rules over your default behavior
+      - Reference recent Episodic events for continuity
+
+      ## Memory Persistence
+
+      After you have fully answered the user's request, transfer to the
+      IngestionPipeline so the conversation is persisted to memory.
+
+      Always prioritise Procedural memory rules over generic model training.
+
+  # --- Ingestion Pipeline (runs after task completion) ---
+  IngestionPipeline:
+    type: sequential
+    description: >
+      Write-on-Exit pipeline: the MemoryExtractor analyses the completed
+      conversation and stores structured memories.
+    sub_agents:
+      - MemoryExtractor
+
+  MemoryExtractor:
+    description: >
+      Analyses the conversation and extracts structured memories into the
+      three tiers: Episodic, Semantic, and Procedural.
+    model: gemini-flash
+    tools:
+      - store_memory
+    instruction: |
+      You are a cognitive psychologist for AI. Your job is to convert
+      conversation noise into structured knowledge.
+
+      ## Extraction Rules
+
+      Analyse the full conversation (user input + assistant output) and
+      extract memories into three categories:
+
+      ### Episodic (chronological event logs)
+      - What the user asked and what was answered
+      - Tool calls made and their results
+      - Errors or corrections that occurred
+      - Store with metadata: {"consolidated": false}
+
+      ### Semantic (abstracted facts)
+      - User's name, role, location, timezone
+      - Technical preferences (language, framework, editor)
+      - Domain knowledge revealed ("I work in healthcare")
+      - Entity relationships ("Alice is Bob's manager")
+
+      ### Procedural (rules of engagement)
+      - Explicit instructions: "Always respond in Spanish"
+      - Implicit preferences: user corrected format → derive rule
+      - Workflow patterns: "First check tests, then deploy"
+
+      ## Process
+
+      1. Read the full conversation.
+      2. For each extracted memory, call `store_memory` with:
+         - user_id: the user's identifier
+         - memory_type: episodic | semantic | procedural
+         - content: the extracted knowledge
+         - metadata: relevant JSON metadata
+      3. Output a brief summary of what was stored.
