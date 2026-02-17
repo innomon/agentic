@@ -10,6 +10,7 @@ import (
 	"github.com/innomon/agentic/internal/config"
 	_ "github.com/innomon/agentic/internal/gnogent"
 	"github.com/innomon/agentic/internal/openclaw/server"
+	_ "github.com/innomon/agentic/internal/prologmem"
 	"github.com/innomon/agentic/internal/registry"
 	_ "github.com/innomon/agentic/internal/routing"
 	_ "github.com/innomon/agentic/internal/wasm"

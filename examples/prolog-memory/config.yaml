@@ -1,0 +1,53 @@
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+tools:
+  logic_query:
+    type: logic_query
+    description: |
+      Run Prolog logic queries against the agent's knowledge base.
+      Actions: assert (add fact), retract (remove fact), query (find solutions), check (true/false), save (persist to disk).
+      Parameters: action (string), query (Prolog term string).
+      Examples:
+        assert: {"action": "assert", "query": "mem_fact(user1, name, alice)"}
+        query:  {"action": "query",  "query": "mem_fact(user1, Key, Value)."}
+        check:  {"action": "check",  "query": "mem_fact(user1, name, alice)."}
+        retract: {"action": "retract", "query": "mem_fact(user1, name, alice)"}
+        save:   {"action": "save",   "query": "true"}
+      Standard predicates: mem_fact/3, mem_rel/3, mem_context/3, agent_rule/3.
+    kb_path: ./knowledge.pl
+    timeout_seconds: 5
+    parameters:
+      action:
+        type: string
+        description: "Action to perform: query, assert, retract, check, or save"
+        required: true
+      query:
+        type: string
+        description: "Prolog term or goal (e.g., 'mem_fact(user1, name, X).')"
+        required: true
+
+agents:
+  RootAgent:
+    model: gemini-flash
+    instruction: |
+      You are a knowledge management agent with logic-based memory.
+
+      Use the logic_query tool to store and retrieve structured knowledge:
+      - Assert facts: action="assert", query="mem_fact(agent_id, key, value)"
+      - Query facts: action="query", query="mem_fact(agent_id, Key, Value)."
+      - Store relations: action="assert", query="mem_rel(subject, predicate, object)"
+      - Query relations: action="query", query="mem_rel(Subject, Predicate, Object)."
+      - Check if something is true: action="check", query="mem_fact(agent_id, key, value)."
+      - Remove facts: action="retract", query="mem_fact(agent_id, key, value)"
+      - Save knowledge base to disk: action="save", query="true"
+
+      Always use lowercase atoms for Prolog terms. Variable names start with uppercase.
+    tools: [logic_query]
+
+memory:
+  provider: prolog
+  kb_path: ./knowledge.pl

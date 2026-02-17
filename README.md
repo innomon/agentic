@@ -12,6 +12,7 @@ A config-driven agentic framework built on Google's [ADK-Go](https://github.com/
 - **WebAssembly Extensions**: Sandboxed WASM tools and agents via wazero with security policies, OCI registry support, and per-invocation isolation
 - **Role-Based Routing**: Route users to agents based on database-stored roles with admin config override and contextual disambiguation
 - **Persistent Memory**: Database-backed conversation memory (PostgreSQL, SQLite)
+- **Logic-Based Memory**: Prolog-powered knowledge base with fact assertion, logical queries, and inference via [ichiban/prolog](https://github.com/ichiban/prolog)
 - **JWT Authentication**: Optional RS256 JWT verification middleware
 - **User Profile Database**: GORM-backed user management with JSONB profile/metadata
 - **OpenAI-Compatible Proxy**: Drop-in proxy for OpenAI API consumers
@@ -97,6 +98,7 @@ Pre-built use-case configurations in `examples/`:
 | [routing](examples/routing/) | Role-based user routing | `./agentic examples/routing/config.yaml console` |
 | [search](examples/search/) | Web search via Google Search | `./agentic examples/search/config.yaml console` |
 | [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic examples/wasm-sequential/config.yaml console` |
+| [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic examples/prolog-memory/config.yaml console` |
 | [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic examples/openclaw/config.yaml console` |
 
 ## Configuration
@@ -384,6 +386,37 @@ agents:
 
 The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.log_msg`.
 
+### Logic Query Tool
+
+Expose a Prolog knowledge base to agents for logical reasoning:
+
+```yaml
+tools:
+  logic_query:
+    type: logic_query
+    description: Run Prolog logic queries
+    kb_path: ./knowledge.pl
+    timeout_seconds: 5
+    parameters:
+      action:
+        type: string
+        description: "Action: query, assert, retract, check, or save"
+        required: true
+      query:
+        type: string
+        description: "Prolog term or goal"
+        required: true
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `kb_path` | Path to `.pl` knowledge base file | Yes |
+| `timeout_seconds` | Query timeout (default: 5) | No |
+
+Actions: `assert` (add fact), `retract` (remove fact), `query` (find solutions), `check` (true/false), `save` (persist to disk).
+
+Standard predicates: `mem_fact/3`, `mem_rel/3`, `mem_context/3`, `agent_rule/3`.
+
 ### Extensibility
 
 #### Custom Agent Types
@@ -481,7 +514,7 @@ memory:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, or `gnogent` | No |
+| `provider` | `inmemory` (default), `database`, `gnogent`, or `prolog` | No |
 | `driver` | `postgres` or `sqlite` | Yes (for `database`) |
 | `dsn` | Connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create schema | No |
@@ -492,6 +525,13 @@ memory:
   provider: gnogent
   dsn: postgres://user:pass@localhost/mydb
   auto_migrate: true
+```
+
+```yaml
+# Prolog provider (logic-based memory with .pl file persistence):
+memory:
+  provider: prolog
+  kb_path: ./knowledge.pl
 ```
 
 ### Authentication
@@ -582,6 +622,7 @@ agentic/
 │   ├── openclaw/                    # OpenClaw WebSocket gateway
 │   ├── routing/                     # Role-based routing
 │   ├── search/                      # Web search agent
+│   ├── prolog-memory/                # Logic-based Prolog knowledge agent
 │   └── wasm-sequential/             # WASM orchestrator
 ├── internal/
 │   ├── auth/                        # JWT verification middleware
@@ -590,6 +631,7 @@ agentic/
 │   ├── console/                     # Console with @file attachments
 │   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
 │   ├── memory/                      # Database-backed memory (GORM)
+│   ├── prologmem/                    # Prolog logic-based memory (ichiban/prolog)
 │   ├── registry/                    # Unified registry (agents, models, tools)
 │   ├── openclaw/                    # OpenClaw gateway (protocol, auth, server, client)
 │   ├── routing/                     # Role-based routing agent

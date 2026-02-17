@@ -92,10 +92,13 @@ agentic/
 │   ├── search/                  # Web search agent example
 │   │   ├── config.yaml
 │   │   └── README.md
-│   └── wasm-sequential/         # WASM orchestrator example
+│   ├── wasm-sequential/         # WASM orchestrator example
+│   │   ├── config.yaml
+│   │   ├── main.go
+│   │   ├── Makefile
+│   │   └── README.md
+│   └── prolog-memory/               # Logic-based Prolog knowledge example
 │       ├── config.yaml
-│       ├── main.go
-│       ├── Makefile
 │       └── README.md
 ├── internal/
 │   ├── compreg/
@@ -113,6 +116,10 @@ agentic/
 │   │   └── verifier.go          # JWT RS256 token verification and middleware
 │   ├── memory/
 │   │   └── mem2db.go            # Database-backed memory service (GORM)
+│   ├── prologmem/                    # Prolog logic-based memory (ichiban/prolog)
+│   │   ├── prologmem.go             # Core PrologMemory struct (Assert/Query/Retract/Check)
+│   │   ├── service.go               # ADK memory.Service adapter
+│   │   └── tool.go                  # logic_query tool type + prolog memory provider
 │   ├── routing/                 # Role-based routing agent
 │   │   ├── routing.go           # Routing agent type (role→agent mapping)
 │   │   └── tools.go             # UserDB tool type (GORM user profiles)
@@ -334,6 +341,44 @@ Wasm agents additionally have access to sub-agent host functions:
 - `env.subagent_name(index i32, buf_ptr i32, buf_cap i32) -> i32` — get sub-agent name
 - `env.run_subagent(index i32) -> i32` — execute a sub-agent
 
+## Logic Query Tool
+
+The `logic_query` tool type exposes an embedded Prolog interpreter ([ichiban/prolog](https://github.com/ichiban/prolog)) as an ADK tool. Agents can assert facts, run logical queries, and persist knowledge to `.pl` files.
+
+```yaml
+tools:
+  logic_query:
+    type: logic_query
+    description: Run Prolog logic queries against the knowledge base
+    kb_path: ./knowledge.pl
+    timeout_seconds: 5
+    parameters:
+      action:
+        type: string
+        description: "Action: query, assert, retract, check, or save"
+        required: true
+      query:
+        type: string
+        description: "Prolog term or goal"
+        required: true
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `kb_path` | Path to `.pl` knowledge base file | Yes |
+| `timeout_seconds` | Query timeout in seconds (default: 5) | No |
+
+Actions:
+- `assert` — add a fact: `{"action": "assert", "query": "mem_fact(agent1, name, alice)"}`
+- `retract` — remove a fact: `{"action": "retract", "query": "mem_fact(agent1, name, alice)"}`
+- `query` — find solutions: `{"action": "query", "query": "mem_fact(agent1, Key, Value)."}`
+- `check` — true/false test: `{"action": "check", "query": "mem_fact(agent1, name, alice)."}`
+- `save` — persist KB to disk: `{"action": "save", "query": "true"}`
+
+Standard predicates: `mem_fact/3`, `mem_rel/3`, `mem_context/3`, `agent_rule/3`.
+
+Safety: All queries are wrapped with a context timeout. Input is sanitized to reject `consult`, `use_module`, `halt`, and other dangerous predicates.
+
 ## Custom Model Providers
 
 Register model providers with custom config schemas:
@@ -393,10 +438,11 @@ memory:
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, or `gnogent` | No |
+| `provider` | `inmemory` (default), `database`, `gnogent`, or `prolog` | No |
 | `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
 | `dsn` | Database connection string | Yes (for `database`) |
 | `auto_migrate` | Auto-create/update schema on startup | No |
+| `kb_path` | Path to `.pl` knowledge base file | Yes (for `prolog`) |
 
 ```yaml
 # Gnogent provider (Postgres-backed with GnoVM memory tables):
@@ -404,6 +450,13 @@ memory:
   provider: gnogent
   dsn: postgres://user:pass@localhost/mydb
   auto_migrate: true
+```
+
+```yaml
+# Prolog provider (logic-based memory with file persistence):
+memory:
+  provider: prolog
+  kb_path: ./knowledge.pl
 ```
 
 ## Auth Configuration

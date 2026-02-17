@@ -11,6 +11,7 @@ import (
 	"github.com/innomon/agentic/internal/console"
 	"github.com/innomon/agentic/internal/registry"
 	_ "github.com/innomon/agentic/internal/gnogent"
+	_ "github.com/innomon/agentic/internal/prologmem"
 	_ "github.com/innomon/agentic/internal/routing"
 	_ "github.com/innomon/agentic/internal/wasm"
 

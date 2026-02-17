@@ -95,6 +95,7 @@ type MemoryConfig struct {
 	Driver      string `yaml:"driver"`
 	DSN         string `yaml:"dsn"`
 	AutoMigrate bool   `yaml:"auto_migrate"`
+	KBPath      string `yaml:"kb_path"`
 }
 
 type GnogentServiceConfig struct {
