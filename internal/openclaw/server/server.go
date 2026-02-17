@@ -186,6 +186,9 @@ func (s *Server) HandleConnect(ctx context.Context, conn *Conn, req *protocol.Re
 	return protocol.NewResponse(req.ID, true, hello, nil), nil
 }
 
+// Cfg returns the server configuration.
+func (s *Server) Cfg() Config { return s.cfg }
+
 // ServeHTTP handles the WebSocket upgrade.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.upgrader.Upgrade(w, r, nil)
