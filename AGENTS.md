@@ -103,7 +103,10 @@ agentic/
 │   │   ├── main.go
 │   │   ├── Makefile
 │   │   └── README.md
-│   └── prolog-memory/               # Logic-based Prolog knowledge example
+│   ├── prolog-memory/               # Logic-based Prolog knowledge example
+│   │   ├── config.yaml
+│   │   └── README.md
+│   └── gomlx/                   # Local embedded LLM example
 │       ├── config.yaml
 │       └── README.md
 ├── internal/
@@ -131,6 +134,23 @@ agentic/
 │   │   └── tools.go             # UserDB tool type (GORM user profiles)
 │   ├── userdb/
 │   │   └── userdb.go            # User profile database (GORM, JSONB)
+│   ├── gomlx/                   # Local embedded LLM (pure Go, GGUF)
+│   │   ├── config.go            # GoMLXConfig struct and validation
+│   │   ├── provider.go          # Model provider registration
+│   │   ├── model.go             # ADK model.LLM implementation
+│   │   ├── gguf.go              # GGUF file parser
+│   │   ├── weights.go           # Weight tensor loading and mapping
+│   │   ├── dequant.go           # Quantization (Q4_K, Q8_0, etc.)
+│   │   ├── arch_llama.go        # LLaMA architecture (attention, FFN)
+│   │   ├── arch_ops.go          # Shared transformer ops (RMSNorm, RoPE, etc.)
+│   │   ├── kvcache.go           # KV-cache for autoregressive generation
+│   │   ├── generate.go          # Token generation loop
+│   │   ├── sampler.go           # Sampling strategies (greedy, top-k, top-p)
+│   │   ├── tokenizer.go         # Tokenizer interface and dispatch
+│   │   ├── tokenizer_bpe.go     # BPE tokenizer
+│   │   ├── tokenizer_sp.go      # SentencePiece tokenizer
+│   │   ├── prompt.go            # Chat template formatting
+│   │   └── toolparse.go         # Tool-call extraction from output
 │   ├── wasm/                    # WASM extension (wazero runtime)
 │   │   ├── wasm.go              # Wasm agent type (sub-agent host fns)
 │   │   ├── tool.go              # Wasm tool type (per-invocation isolation)
@@ -507,6 +527,8 @@ if claims != nil {
 - `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
 - `OPENAI_API_KEY` - Required for OpenAI model access (if not set in config)
 - `BYPASS_AUTH` - Set to `true` to skip JWT verification for localhost requests (dev only)
+- `GOMLX_BACKEND` - Override GoMLX compute backend (default: CPU; `xla` reserved for future use)
+- `GOMLX_NO_AUTO_INSTALL` - Set to `true` to disable automatic XLA plugin download (future use)
 
 ## Model Configuration
 
@@ -535,6 +557,56 @@ Required fields:
 - `provider: ollama`
 - `model_id`: The model name as shown in `ollama list`
 - `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)
+
+### GoMLX Provider
+
+The `gomlx` provider runs GGUF-quantized models locally in pure Go — no external APIs, no GPU required. It embeds a GGUF loader and transformer inference engine directly into the binary.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `provider` | Must be `gomlx` | Yes |
+| `model_id` | A logical name for the model (e.g., `smollm2-135m`) | Yes |
+| `model_path` | Path to the `.gguf` model file | Yes |
+| `context_length` | Max context window in tokens (default: from GGUF metadata) | No |
+| `threads` | CPU threads for inference (default: `runtime.NumCPU()`) | No |
+| `memory_budget_mb` | Memory limit in MB (default: unlimited) | No |
+| `tokenizer_path` | Override tokenizer file path (default: embedded in GGUF) | No |
+| `backend` | Compute backend (default: CPU; `xla` reserved for future use) | No |
+| `backend_config` | Backend-specific configuration string | No |
+
+Minimal example:
+
+```yaml
+models:
+  local-llm:
+    provider: gomlx
+    model_id: smollm2-135m
+    model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
+    default: true
+```
+
+Full example with all options:
+
+```yaml
+models:
+  local-llm:
+    provider: gomlx
+    model_id: smollm2-135m
+    model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
+    default: true
+    context_length: 2048
+    threads: 4
+    memory_budget_mb: 512
+    tokenizer_path: ./models/tokenizer.json
+```
+
+Supported architectures: **LLaMA** family (LLaMA 2/3, Mistral, SmolLM, CodeLlama, TinyLlama, and other LLaMA-derived models).
+
+Environment variables (for future XLA backend):
+- `GOMLX_BACKEND` — Override the compute backend (default: CPU)
+- `GOMLX_NO_AUTO_INSTALL` — Set to `true` to disable automatic XLA plugin download
+
+**Limitations:** GoMLX runs inference in pure Go on the CPU. Best suited for small models up to ~3B parameters. For larger models, use the Gemini, OpenAI, or Ollama providers.
 
 ## OpenClaw Gateway (clawgate)
 

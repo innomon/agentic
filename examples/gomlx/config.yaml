@@ -1,0 +1,14 @@
+models:
+  local-llm:
+    provider: gomlx
+    model_id: smollm2-135m
+    model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
+    default: true
+
+agents:
+  LocalAgent:
+    model: local-llm
+    description: A local assistant powered by an embedded LLM
+    instruction: You are a helpful assistant running entirely on the user's machine. Be concise and accurate.
+
+root_agent: LocalAgent

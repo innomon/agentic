@@ -12,6 +12,7 @@ import (
 	openclawlauncher "github.com/innomon/agentic/internal/openclaw/launcher"
 	"github.com/innomon/agentic/internal/registry"
 	_ "github.com/innomon/agentic/internal/gnogent"
+	_ "github.com/innomon/agentic/internal/gomlx"
 	_ "github.com/innomon/agentic/internal/prologmem"
 	_ "github.com/innomon/agentic/internal/routing"
 	_ "github.com/innomon/agentic/internal/wasm"

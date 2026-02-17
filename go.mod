@@ -5,6 +5,8 @@ go 1.24.13
 require (
 	github.com/gnolang/gno v0.0.0-20260205104136-e696bc2afd6c
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/gpustack/gguf-parser-go v0.24.0
+	github.com/ichiban/prolog v1.2.2
 	github.com/openai/openai-go/v3 v3.16.0
 	github.com/regclient/regclient v0.11.1
 	github.com/tetratelabs/wazero v1.11.0
@@ -16,7 +18,15 @@ require (
 	gorm.io/gorm v1.31.0
 )
 
-require github.com/ichiban/prolog v1.2.2 // indirect
+require (
+	github.com/henvic/httpretty v0.1.4 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/smallnest/ringbuffer v0.0.0-20241116012123-461381446e3d // indirect
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
+	gonum.org/v1/gonum v0.16.0 // indirect
+)
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
@@ -77,8 +87,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/gorilla/mux v1.8.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
