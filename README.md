@@ -97,6 +97,7 @@ Pre-built use-case configurations in `examples/`:
 | [routing](examples/routing/) | Role-based user routing | `./agentic examples/routing/config.yaml console` |
 | [search](examples/search/) | Web search via Google Search | `./agentic examples/search/config.yaml console` |
 | [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic examples/wasm-sequential/config.yaml console` |
+| [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic examples/openclaw/config.yaml console` |
 
 ## Configuration
 
@@ -578,6 +579,7 @@ agentic/
 ├── examples/
 │   ├── med-fhir/                    # Medical FHIR transcription
 │   ├── farmer/                      # Organic farming advisor
+│   ├── openclaw/                    # OpenClaw WebSocket gateway
 │   ├── routing/                     # Role-based routing
 │   ├── search/                      # Web search agent
 │   └── wasm-sequential/             # WASM orchestrator
@@ -589,6 +591,7 @@ agentic/
 │   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
 │   ├── memory/                      # Database-backed memory (GORM)
 │   ├── registry/                    # Unified registry (agents, models, tools)
+│   ├── openclaw/                    # OpenClaw gateway (protocol, auth, server, client)
 │   ├── routing/                     # Role-based routing agent
 │   ├── userdb/                      # User profile database
 │   └── wasm/                        # WASM runtime (wazero)

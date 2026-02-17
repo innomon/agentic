@@ -1,0 +1,38 @@
+# OpenClaw Gateway Agent Configuration
+# Usage: ./agentic examples/openclaw/config.yaml console
+#
+# This example demonstrates the OpenClaw gateway protocol agent.
+# The agent handles gateway client interactions via the OpenClaw wire protocol.
+
+root_agent: GatewayAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  GatewayAgent:
+    description: |
+      OpenClaw Gateway protocol agent that handles WebSocket client connections
+      and dispatches agent requests to sub-agents. Supports device authentication,
+      tick/keepalive, sequence tracking, and the OpenClaw wire protocol.
+    model: gemini-flash
+    sub_agents:
+      - AssistantAgent
+    instruction: |
+      You are the OpenClaw Gateway agent. You handle incoming requests from
+      gateway clients and provide intelligent responses.
+
+      When receiving agent.* method requests from clients, process them
+      and provide helpful, accurate responses.
+
+      You can delegate to AssistantAgent for general-purpose queries.
+
+  AssistantAgent:
+    description: General-purpose assistant for handling gateway agent requests
+    model: gemini-flash
+    instruction: |
+      You are a helpful assistant accessed through the OpenClaw Gateway.
+      Provide clear, concise, and accurate responses to user queries.
