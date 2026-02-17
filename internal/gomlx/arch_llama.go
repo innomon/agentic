@@ -89,8 +89,8 @@ func NewLlamaArch(weights WeightMap, info *GGUFModelInfo) (*LlamaArch, error) {
 // Name returns the architecture name.
 func (l *LlamaArch) Name() string { return "llama" }
 
-// NewKVCacheForModel creates a KV cache sized for this model.
-func (l *LlamaArch) NewKVCacheForModel(maxSeqLen int) *KVCache {
+// NewCacheForModel creates a KV cache sized for this model.
+func (l *LlamaArch) NewCacheForModel(maxSeqLen int) *KVCache {
 	return NewKVCache(l.nLayers, l.nKVHeads, l.headDim, maxSeqLen)
 }
 

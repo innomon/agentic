@@ -23,6 +23,11 @@ type GGUFModelInfo struct {
 	VocabSize          uint64   `json:"vocabSize,omitempty"`
 	ContextLength      uint64   `json:"contextLength,omitempty"`
 
+	// Scaling factors (for Granite/MiniCPM-style architectures).
+	EmbeddingScale float32 `json:"embeddingScale,omitempty"`
+	ResidualScale  float32 `json:"residualScale,omitempty"`
+	LogitScale     float32 `json:"logitScale,omitempty"`
+
 	// Size estimates
 	ModelParameters uint64 `json:"modelParameters"`
 	ModelSize       uint64 `json:"modelSize"`
@@ -73,6 +78,12 @@ func ParseGGUF(path string) (*GGUFModelInfo, error) {
 		TensorCount: gf.Header.TensorCount,
 	}
 
+	// Extract scaling factors from metadata (used by Granite, MiniCPM, etc.).
+	archPrefix := meta.Architecture + "."
+	info.EmbeddingScale = getMetadataFloat32(gf, archPrefix+"embedding_scale")
+	info.ResidualScale = getMetadataFloat32(gf, archPrefix+"residual_scale")
+	info.LogitScale = getMetadataFloat32(gf, archPrefix+"logit_scale")
+
 	for _, ti := range gf.TensorInfos {
 		info.Tensors = append(info.Tensors, GGUFTensorInfo{
 			Name:       ti.Name,
@@ -82,6 +93,22 @@ func ParseGGUF(path string) (*GGUFModelInfo, error) {
 	}
 
 	return info, nil
+}
+
+// getMetadataFloat32 safely extracts a float32 metadata value, returning 0 if not found.
+func getMetadataFloat32(gf *gguf.GGUFFile, key string) float32 {
+	kv, found := gf.Header.MetadataKV.Get(key)
+	if !found {
+		return 0
+	}
+	switch kv.ValueType {
+	case gguf.GGUFMetadataValueTypeFloat32:
+		return kv.ValueFloat32()
+	case gguf.GGUFMetadataValueTypeFloat64:
+		return float32(kv.ValueFloat64())
+	default:
+		return 0
+	}
 }
 
 // EstimateMemoryBytes returns a rough estimate of memory needed to load the model.

@@ -49,6 +49,45 @@ func FormatPrompt(req *model.LLMRequest) string {
 	return b.String()
 }
 
+// FormatPromptGranite converts an LLMRequest into a Granite-style chat template prompt.
+// Uses <|start_of_role|>role<|end_of_role|> delimiters with <|end_of_text|> turn endings.
+func FormatPromptGranite(req *model.LLMRequest) string {
+	var b strings.Builder
+
+	// System instruction.
+	systemText := extractSystemInstruction(req)
+	if systemText != "" {
+		b.WriteString("<|start_of_role|>system<|end_of_role|>")
+		b.WriteString(systemText)
+		b.WriteString("<|end_of_text|>\n")
+	}
+
+	// Conversation turns.
+	for _, content := range req.Contents {
+		switch content.Role {
+		case "user":
+			b.WriteString("<|start_of_role|>user<|end_of_role|>")
+			b.WriteString(extractText(content.Parts))
+			b.WriteString("<|end_of_text|>\n")
+
+		case "model":
+			b.WriteString("<|start_of_role|>assistant<|end_of_role|>")
+			b.WriteString(formatModelParts(content.Parts))
+			b.WriteString("<|end_of_text|>\n")
+
+		case "tool":
+			b.WriteString("<|start_of_role|>tool<|end_of_role|>")
+			b.WriteString(formatToolParts(content.Parts))
+			b.WriteString("<|end_of_text|>\n")
+		}
+	}
+
+	// Open assistant turn for generation.
+	b.WriteString("<|start_of_role|>assistant<|end_of_role|>")
+
+	return b.String()
+}
+
 // FormatPromptGeneric converts an LLMRequest into a simple generic prompt format
 // suitable for models that don't use the LLaMA 3 chat template.
 func FormatPromptGeneric(req *model.LLMRequest) string {

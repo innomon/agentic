@@ -600,7 +600,9 @@ models:
     tokenizer_path: ./models/tokenizer.json
 ```
 
-Supported architectures: **LLaMA** family (LLaMA 2/3, Mistral, SmolLM, CodeLlama, TinyLlama, and other LLaMA-derived models).
+Supported architectures:
+- **LLaMA** family (LLaMA 2/3, Mistral, SmolLM, CodeLlama, TinyLlama, and other LLaMA-derived models).
+- **Granite** family (Granite 4.0 dense and hybrid models). Hybrid models mix attention layers with Mamba2 SSM layers for efficient long-context inference.
 
 Environment variables (for future XLA backend):
 - `GOMLX_BACKEND` — Override the compute backend (default: CPU)

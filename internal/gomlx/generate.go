@@ -24,7 +24,7 @@ type GenerateResult struct {
 
 // Generate runs autoregressive text generation and yields text chunks as they are produced.
 // The arch and tokenizer must be provided.
-func Generate(ctx context.Context, arch *LlamaArch, tokenizer Tokenizer, prompt string, params GenerateParams) iter.Seq2[string, error] {
+func Generate(ctx context.Context, arch Arch, tokenizer Tokenizer, prompt string, params GenerateParams) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
 		// 1. Tokenize the prompt.
 		promptTokens, err := tokenizer.Encode(prompt)
@@ -44,7 +44,7 @@ func Generate(ctx context.Context, arch *LlamaArch, tokenizer Tokenizer, prompt 
 
 		// 2. Create KV cache.
 		maxSeqLen := len(promptTokens) + maxTokens
-		kv := arch.NewKVCacheForModel(maxSeqLen)
+		kv := arch.NewCacheForModel(maxSeqLen)
 
 		// 3. Prefill: run forward pass over all prompt tokens.
 		// Forward processes them sequentially and populates the KV cache.

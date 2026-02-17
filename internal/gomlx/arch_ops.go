@@ -127,3 +127,66 @@ func ElemMul(out, a, b []float32) {
 		out[i] = a[i] * b[i]
 	}
 }
+
+// Softplus computes log(1 + exp(x)) with numerical stability.
+func Softplus(x float32) float32 {
+	if x > 20 {
+		return x
+	}
+	return float32(math.Log1p(math.Exp(float64(x))))
+}
+
+// AddScaled computes out = a + scale*b element-wise. All slices must have the same length.
+func AddScaled(out, a, b []float32, scale float32) {
+	for i := range out {
+		out[i] = a[i] + scale*b[i]
+	}
+}
+
+// RMSNormGated computes gated RMS normalization: (x_i * weight_i / rms(x)) * silu(gate_i).
+// out, x, gate, and weight must all have the same length.
+func RMSNormGated(out, x, gate, weight []float32, eps float32) {
+	n := len(x)
+	var ss float32
+	for i := 0; i < n; i++ {
+		ss += x[i] * x[i]
+	}
+	ss = ss/float32(n) + eps
+	rs := float32(1.0 / math.Sqrt(float64(ss)))
+	for i := 0; i < n; i++ {
+		g := gate[i] * float32(1.0/(1.0+math.Exp(float64(-gate[i])))) // SiLU(gate)
+		out[i] = x[i] * rs * weight[i] * g
+	}
+}
+
+// Conv1DDepthwiseDecode performs a single step of causal depthwise 1D convolution.
+// convState is a shift register of shape [nChannels * (kernel-1)], updated in-place.
+// input is the new input vector of shape [nChannels].
+// weight has shape [nChannels * kernel] (depthwise: each channel has its own kernel).
+// bias has shape [nChannels] (may be nil for no bias).
+// Returns the output vector of shape [nChannels].
+func Conv1DDepthwiseDecode(convState, input, weight, bias []float32, nChannels, kernel int) []float32 {
+	out := make([]float32, nChannels)
+	histLen := kernel - 1
+	for c := 0; c < nChannels; c++ {
+		stateOff := c * histLen
+		// Shift state left: drop oldest, append new input
+		for k := 0; k < histLen-1; k++ {
+			convState[stateOff+k] = convState[stateOff+k+1]
+		}
+		convState[stateOff+histLen-1] = input[c]
+
+		// Compute dot product of [history..., current] with kernel weights
+		var sum float32
+		wOff := c * kernel
+		for k := 0; k < histLen; k++ {
+			sum += convState[stateOff+k] * weight[wOff+k]
+		}
+		sum += input[c] * weight[wOff+histLen]
+		if bias != nil {
+			sum += bias[c]
+		}
+		out[c] = sum
+	}
+	return out
+}

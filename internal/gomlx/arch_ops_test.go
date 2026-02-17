@@ -252,7 +252,7 @@ func TestLlamaForward(t *testing.T) {
 	if int(info.ContextLength) < maxSeq {
 		maxSeq = int(info.ContextLength)
 	}
-	kv := arch.NewKVCacheForModel(maxSeq)
+	kv := arch.NewCacheForModel(maxSeq)
 
 	// Run forward pass with a single token (BOS = 1 for most LLaMA models).
 	logits := arch.Forward([]int32{1}, 0, kv)

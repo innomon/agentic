@@ -14,7 +14,7 @@ import (
 // GoMLXModel is a local LLM model backed by GGUF weights and a pure-Go transformer.
 type GoMLXModel struct {
 	cfg       *GoMLXConfig
-	arch      *LlamaArch
+	arch      Arch
 	tokenizer Tokenizer
 	info      *GGUFModelInfo
 	weights   WeightMap
@@ -65,6 +65,12 @@ func (m *GoMLXModel) doInit() error {
 			return fmt.Errorf("create llama arch: %w", err)
 		}
 		m.arch = arch
+	case "granite", "granitehybrid", "granitemoehybrid":
+		arch, err := NewGraniteHybridArch(weights, info)
+		if err != nil {
+			return fmt.Errorf("create granite hybrid arch: %w", err)
+		}
+		m.arch = arch
 	default:
 		return fmt.Errorf("unsupported architecture: %s", archName)
 	}
@@ -84,8 +90,14 @@ func (m *GoMLXModel) GenerateContent(ctx context.Context, req *model.LLMRequest,
 			return
 		}
 
-		// Format the request into a prompt string.
-		prompt := FormatPrompt(req)
+		// Format the request into a prompt string using the architecture-appropriate template.
+		var prompt string
+		switch m.arch.Name() {
+		case "granitehybrid":
+			prompt = FormatPromptGranite(req)
+		default:
+			prompt = FormatPrompt(req)
+		}
 
 		// Build sampling parameters from the request config.
 		params := m.buildGenerateParams(req)

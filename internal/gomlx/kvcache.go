@@ -1,5 +1,16 @@
 package gomlx
 
+// MambaLayerState holds the recurrent state for a single Mamba2 layer.
+type MambaLayerState struct {
+	ConvState []float32 // [convDim * (kernel-1)] shift register for causal conv1d
+	SSMState  []float32 // [nHeads * headDim * dState] recurrent SSM state
+}
+
+// MambaCache holds state for all Mamba2 layers in a hybrid model.
+type MambaCache struct {
+	Layers []MambaLayerState // indexed by global layer index
+}
+
 // KVCache holds key-value cache state for transformer attention layers.
 // Keys and Values are stored as flat slices per layer per head:
 //
@@ -7,6 +18,8 @@ package gomlx
 type KVCache struct {
 	Keys   [][][]float32 // [nLayers][nKVHeads][seqLen * headDim]
 	Values [][][]float32
+
+	Mamba *MambaCache
 
 	SeqLen int
 
@@ -72,6 +85,16 @@ func (kv *KVCache) Reset() {
 		for h := 0; h < kv.NKVHeads; h++ {
 			kv.Keys[l][h] = kv.Keys[l][h][:0]
 			kv.Values[l][h] = kv.Values[l][h][:0]
+		}
+	}
+	if kv.Mamba != nil {
+		for i := range kv.Mamba.Layers {
+			for j := range kv.Mamba.Layers[i].ConvState {
+				kv.Mamba.Layers[i].ConvState[j] = 0
+			}
+			for j := range kv.Mamba.Layers[i].SSMState {
+				kv.Mamba.Layers[i].SSMState[j] = 0
+			}
 		}
 	}
 }
