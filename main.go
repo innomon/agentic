@@ -9,6 +9,7 @@ import (
 	"github.com/innomon/agentic/internal/auth"
 	"github.com/innomon/agentic/internal/config"
 	"github.com/innomon/agentic/internal/console"
+	openclawlauncher "github.com/innomon/agentic/internal/openclaw/launcher"
 	"github.com/innomon/agentic/internal/registry"
 	_ "github.com/innomon/agentic/internal/gnogent"
 	_ "github.com/innomon/agentic/internal/prologmem"
@@ -67,7 +68,7 @@ func main() {
 
 	l := universal.NewLauncher(
 		console.New(),
-		web.NewLauncher(api.NewLauncher(), webui.NewLauncher()),
+		web.NewLauncher(api.NewLauncher(), webui.NewLauncher(), openclawlauncher.NewLauncher()),
 	)
 
 	if err := l.Execute(ctx, launcherConfig, os.Args[largs:]); err != nil {

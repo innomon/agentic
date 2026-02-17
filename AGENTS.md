@@ -19,6 +19,12 @@ go build -o agentic .
 # Run in web UI mode (http://localhost:8080/ui/)
 ./agentic web
 
+# Run web with OpenClaw WebSocket gateway
+./agentic web api openclaw
+
+# Run web with all sublaunchers
+./agentic web api webui openclaw
+
 # Run tests
 go test ./...
 
@@ -133,6 +139,9 @@ agentic/
 │   │   ├── cache.go             # Compilation cache (wazero disk-backed)
 │   │   ├── oci.go               # OCI registry puller (regclient, digest cache)
 │   │   └── host_net.go          # Guarded HTTP host functions
+│   ├── openclaw/
+│   │   ├── launcher/
+│   │   │   └── launcher.go          # Web sublauncher (integrates into universal launcher)
 │   └── registry/                # Unified registry (config, components, instances)
 │       ├── registry.go          # Instance cache with generic Get[T]
 │       ├── config.go            # Config types and YAML parsing

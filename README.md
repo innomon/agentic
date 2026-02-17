@@ -16,7 +16,7 @@ A config-driven agentic framework built on Google's [ADK-Go](https://github.com/
 - **JWT Authentication**: Optional RS256 JWT verification middleware
 - **User Profile Database**: GORM-backed user management with JSONB profile/metadata
 - **OpenAI-Compatible Proxy**: Drop-in proxy for OpenAI API consumers
-- **Console & Web UI**: Interactive terminal with file attachments, browser UI, and REST API
+- **Console & Web UI**: Interactive terminal with file attachments, browser UI, REST API, and OpenClaw WebSocket gateway
 
 ## Quick Start
 
@@ -64,6 +64,22 @@ Agent -> ...
 
 Open http://localhost:8080/ui/ in your browser. Supports drag-and-drop file uploads.
 
+### OpenClaw WebSocket Gateway
+
+Run the OpenClaw WebSocket gateway as part of the web server:
+
+```bash
+# Web server with REST API + OpenClaw gateway
+./agentic web api openclaw
+
+# All sublaunchers (API + Web UI + OpenClaw)
+./agentic web api webui openclaw
+```
+
+The gateway listens on `/ws` by default. Use `-ws-path` to change it.
+
+The standalone `cmd/clawgate` binary is also available for dedicated gateway deployments.
+
 ### Custom Configuration
 
 Load any YAML config file:
@@ -80,8 +96,13 @@ Load any YAML config file:
 ./agentic [config.yaml] [mode] [options]
 
 Modes:
-  console   Interactive terminal mode
-  web       Web UI + REST API mode
+  console           Interactive terminal mode
+  web               Web server mode (requires sublaunchers)
+
+Web sublaunchers:
+  api               REST API
+  webui             Browser-based UI
+  openclaw          OpenClaw WebSocket gateway
 
 Options:
   --help    Show help message
@@ -633,7 +654,7 @@ agentic/
 │   ├── memory/                      # Database-backed memory (GORM)
 │   ├── prologmem/                    # Prolog logic-based memory (ichiban/prolog)
 │   ├── registry/                    # Unified registry (agents, models, tools)
-│   ├── openclaw/                    # OpenClaw gateway (protocol, auth, server, client)
+│   ├── openclaw/                    # OpenClaw gateway (protocol, auth, server, client, launcher)
 │   ├── routing/                     # Role-based routing agent
 │   ├── userdb/                      # User profile database
 │   └── wasm/                        # WASM runtime (wazero)

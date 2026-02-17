@@ -200,6 +200,44 @@ Suggested Go package layout
 - pkg/gatewayclient/ — public client library for other Go programs to call the gateway
 - internal/tests/ — test helpers and e2e harness
 
+## Web Sublauncher Integration
+
+The OpenClaw gateway can run as a web sublauncher within the universal launcher, sharing the HTTP server with the REST API and Web UI. This is the recommended deployment for most use cases.
+
+### Running as a Sublauncher
+
+```bash
+# API + OpenClaw gateway on shared port 8080
+./agentic web api openclaw
+
+# All sublaunchers
+./agentic web api webui openclaw
+
+# Custom WebSocket path
+./agentic web api openclaw -ws-path /openclaw/ws
+```
+
+### Architecture
+
+When running as a sublauncher, the OpenClaw server mounts its WebSocket handler onto the shared gorilla/mux router via `SetupSubrouters`. The `AgentBridge` is created from the same `launcher.Config` used by the REST API, ensuring shared session and memory services.
+
+```
+Universal Launcher
+├── console (SubLauncher)
+└── web (SubLauncher)
+    ├── api (web.Sublauncher)        → /api/*
+    ├── webui (web.Sublauncher)      → /ui/*
+    └── openclaw (web.Sublauncher)   → /ws
+```
+
+### Package Location
+
+- `internal/openclaw/launcher/launcher.go` — implements `web.Sublauncher` interface
+
+### Standalone Binary
+
+The standalone `cmd/clawgate` binary remains available for dedicated gateway deployments where the OpenClaw gateway runs on its own port and process.
+
 Recommended libraries
 - WebSocket: github.com/gorilla/websocket
 - JSON schema validation: github.com/santhosh-tekuri/jsonschema or github.com/xeipuuv/gojsonschema
