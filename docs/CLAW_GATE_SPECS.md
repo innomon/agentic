@@ -267,6 +267,137 @@ Example behaviors to match exactly
 - Server must support both `.js` and `.mjs` style of produced artifacts? (Not applicable for Go, but keep flexibility for accepting both token formats and device auth variants).
 - Max payload handling (25MB by default).
 
+## Agent Bridge — Routing Conversations to ADK Agents
+
+The OpenClaw gateway routes user conversations to ADK agents via the `AgentBridge`, which lives in `internal/openclaw/server/agentbridge.go`. The bridge is wired up in `cmd/clawgate/main.go`.
+
+### Architecture Flow
+
+```
+Client (WebSocket)
+  │
+  ├─ connect ──────────► Server (auth, handshake, tick loop)
+  │
+  ├─ agent.session.create ──► AgentBridge
+  │                              │
+  │                              ├─ SessionService.Create()
+  │                              └─ returns { sessionId }
+  │
+  └─ agent.send { text } ──► AgentBridge
+                                │
+                                ├─ Returns immediate ACK: { status: "accepted" }
+                                │
+                                └─ (goroutine) runner.Run(ctx, userID, sessionID, msg)
+                                     │
+                                     ├─ Streams agent.text events back to client
+                                     │   { requestId, text, author, partial, final }
+                                     │
+                                     ├─ On error: agent.error event
+                                     │   { requestId, error }
+                                     │
+                                     └─ On completion: final res frame
+                                         { text: "<final response>" }
+```
+
+### How It Works
+
+1. **Startup**: `cmd/clawgate/main.go` loads the YAML config, builds a `launcher.Config` via the registry (which resolves the root agent, session service, memory service, etc.), then creates an `AgentBridge` from it.
+
+2. **Wiring**: The bridge's `Handler()` method is passed to `srv.SetAgentHandler()`, which registers it as the handler for all `agent.*` method prefixes in the server's dispatch table.
+
+3. **Session creation** (`agent.session.create`): The client creates an ADK session. The bridge stores a mapping of `clientID → sessionID` so subsequent `agent.send` calls can omit the session ID.
+
+4. **Message dispatch** (`agent.send`): The bridge:
+   - Validates the request and resolves the session.
+   - Returns an immediate `{ status: "accepted" }` ACK response.
+   - Spawns a goroutine that calls `runner.Run()` with SSE streaming mode.
+   - Each agent event is sent to the client as an `agent.text` WebSocket event frame.
+   - When the agent finishes, a final `res` frame is sent with the complete response text.
+
+5. **Client handling**: The client uses `expectFinal: true` semantics — it receives the initial ACK, then listens for `agent.text` events for streaming output, and finally receives the closing response frame.
+
+### Agent Methods
+
+| Method | Direction | Description |
+|--------|-----------|-------------|
+| `agent.session.create` | req/res | Create a new ADK session for conversation |
+| `agent.send` | req/res + events | Send user message, receive streaming agent response |
+
+### agent.session.create
+
+**Request params:**
+```json
+{
+  "userId": "optional-user-id"
+}
+```
+
+**Response payload:**
+```json
+{
+  "sessionId": "uuid"
+}
+```
+
+### agent.send
+
+**Request params:**
+```json
+{
+  "sessionId": "optional-if-previously-created",
+  "userId": "optional-user-id",
+  "text": "user message"
+}
+```
+
+**Immediate ACK response:**
+```json
+{
+  "status": "accepted"
+}
+```
+
+**Streaming event (agent.text):**
+```json
+{
+  "type": "event",
+  "event": "agent.text",
+  "payload": {
+    "requestId": "original-req-id",
+    "text": "partial or full text",
+    "author": "AgentName",
+    "partial": true,
+    "final": false
+  },
+  "seq": 5
+}
+```
+
+**Error event (agent.error):**
+```json
+{
+  "type": "event",
+  "event": "agent.error",
+  "payload": {
+    "requestId": "original-req-id",
+    "error": "error description"
+  },
+  "seq": 6
+}
+```
+
+**Final response:**
+```json
+{
+  "type": "res",
+  "id": "original-req-id",
+  "ok": true,
+  "payload": {
+    "text": "complete agent response"
+  }
+}
+```
+
 ## Appendix A — Event & Response examples
 
 - connect (client -> server req)

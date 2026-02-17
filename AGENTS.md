@@ -135,6 +135,9 @@ agentic/
 │       ├── ollama.go            # Ollama provider (official OpenAI SDK)
 │       ├── agents.go            # Built-in agent types (llm, sequential, etc.)
 │       └── tools.go             # Tool type registration and built-in tools
+├── cmd/
+│   └── clawgate/
+│       └── main.go              # OpenClaw gateway binary entry point
 ├── openai-proxy/                # OpenAI-compatible API proxy
 │   ├── main.go
 │   └── config.yaml
@@ -470,3 +473,36 @@ Required fields:
 - `provider: ollama`
 - `model_id`: The model name as shown in `ollama list`
 - `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)
+
+## OpenClaw Gateway (clawgate)
+
+The `clawgate` binary (`cmd/clawgate/main.go`) is the OpenClaw WebSocket gateway that routes client conversations to ADK agents.
+
+### How Agent Routing Works
+
+The gateway uses an `AgentBridge` (`internal/openclaw/server/agentbridge.go`) to connect the OpenClaw WebSocket protocol to the ADK runner:
+
+1. **Config → Registry → LauncherConfig**: The YAML config is loaded, the registry resolves all agents/models/tools, and `BuildLauncherConfig()` produces a `launcher.Config` with the root agent and session/memory services.
+
+2. **LauncherConfig → AgentBridge**: `NewAgentBridge(launcherConfig)` creates an ADK `runner.Runner` from the launcher config.
+
+3. **AgentBridge → Server**: `srv.SetAgentHandler(bridge.Handler())` registers the bridge as the handler for all `agent.*` RPC methods via prefix dispatch.
+
+4. **Client interaction**:
+   - `agent.session.create` → creates an ADK session, returns `sessionId`
+   - `agent.send` → sends user text to the agent, streams `agent.text` events back over WebSocket, sends final `res` frame on completion
+
+### Running
+
+```bash
+# Build
+go build -o clawgate ./cmd/clawgate/
+
+# Run with default config
+./clawgate
+
+# Run with custom config
+./clawgate examples/openclaw/config.yaml
+```
+
+See `docs/CLAW_GATE_SPECS.md` for the full protocol specification and agent method schemas.
