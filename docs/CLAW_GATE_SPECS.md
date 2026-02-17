@@ -680,3 +680,107 @@ ui/src/ui/gateway.ts          # Browser-side Gateway client (GatewayBrowserClien
 src/gateway/auth.ts           # Auth helpers used by gateway and clients (resolveGatewayAuth)
 src/gateway/call.ts           # Helpers to build gateway connection details / call gateway
 ```
+
+## Appendix D: Open Claw Gateway Compatibility  
+
+On "is this executable a droping replacement for openclaw gateway?" 
+
+Github Copilot answers:
+
+Short answer: Mostly yes — this binary is implemented to run an "OpenClaw gateway" backed by Agentic, but it may not be a guaranteed drop‑in replacement in every environment without verifying configuration and API compatibility.
+
+Why it looks like an OpenClaw gateway
+- main.go imports github.com/innomon/agentic/internal/openclaw/server and calls server.NewAgentBridge(launcherConfig) to create an AgentBridge, then creates server.New(server.Config{}) and sets the bridge as the agent handler. It also logs "Starting OpenClaw gateway server..." — so it is explicitly the OpenClaw gateway entrypoint for this repo.
+
+Caveats / things that can break drop‑in behavior
+- server.Config{} here uses the package defaults. If your current OpenClaw gateway was started with non‑default bind address/path/TLS/middleware, you must make the new binary use the same settings (edit the YAML config or server code).
+- Authentication: main.go only constructs a JWT verifier if the config provides it (public key path + issuer/audience). Make sure JWT settings match what clients expect (key path, issuer, audience, token locations).
+- Registered components: blank imports (_ "…/gnogent", _ "…/routing", _ "…/wasm") register available agent types/tools. If your previous gateway exposed different providers or plugins, ensure the same components are registered.
+- API surface: confirm the internal/openclaw/server.Handler() exposes the same endpoints, request/response shapes, streaming/SSE/websocket behavior and headers your clients rely on.
+- TLS, proxies, rate limiting, CORS, and other infra differences may change behavior even if HTTP paths match.
+
+How to confirm quickly
+1. Build and run the binary:
+   - go build -o clawgate ./cmd/clawgate
+   - ./clawgate config/path.yaml
+2. Compare a couple of representative calls from your current gateway to the new one (use curl or an HTTP proxy):
+   - Verify health/ready endpoints if present
+   - Send a real request your clients use and compare status codes, headers, and JSON schema
+3. Inspect the implementation/details if something differs:
+   - Check internal/openclaw/server package for Config defaults, Bind/Path, and Handler routes
+   - Check launcher/registry config to ensure sessions/memory/agents are built the same
+4. Run integration tests or smoke tests used in your deployment.
+
+
+I started loading the repository search ability so I could open internal/openclaw/server and show exact endpoints/defaults, but the code-search calls failed (repo inaccessible from my tooling right now). I can retry if you want, or you can paste the contents of internal/openclaw/server (or give me read access) and I’ll extract the precise endpoints and config fields.
+
+While we get that, here are concrete, actionable next steps and ready-to-run checks you can use now — plus sample curl/websocket tests you can copy/paste after substituting your actual bind address and path.
+
+What I attempted and next step
+- I tried to open internal/openclaw/server to list exact routes and Config fields but the code search failed. If you want the exact function names, endpoints and default values I can:
+  - retry the repo search, or
+  - you can paste internal/openclaw/server/*.go here (or grant access).
+- Meanwhile, below are practical checks and tests you can run immediately.
+
+Quick checklist to confirm drop-in compatibility
+1. Build and run this binary with the same config your existing gateway uses:
+   - go build -o clawgate ./cmd/clawgate
+   - ./clawgate path/to/your-config.yaml
+2. Confirm bind/path and server config:
+   - The binary logs bind and path at startup (main.go logs: "Starting OpenClaw gateway server on %s%s" with srv.Cfg().Bind and srv.Cfg().Path). Make sure they match your current gateway.
+3. Verify authentication:
+   - If using JWT, ensure public key path, issuer, and audience in config match the previous gateway.
+   - Check how tokens are expected (Authorization header? cookie?). Match clients.
+4. Confirm registered components/plugins:
+   - main.go blank-imports gnogent, routing, wasm — if your old gateway had other providers, ensure identical registration.
+5. Confirm TLS/CORS/proxy configuration:
+   - Match any TLS certs, reverse-proxy headers (X-Forwarded-For/Proto), and CORS rules.
+6. Smoke-tests (see below).
+
+Generic smoke-test commands (replace BIND and PATH)
+- Replace:
+  - BIND_HOST_PORT with e.g. 127.0.0.1:8080
+  - BASE_PATH with the server path printed at startup (e.g. /openclaw or /)
+
+1) Health / readiness
+- curl (HTTP):
+  curl -i "http://BIND_HOST_PORTBASE_PATH/health" 
+  or
+  curl -i "http://BIND_HOST_PORT/health"
+(If you’re not sure path, try both with and without BASE_PATH.)
+
+2) Basic GET endpoint test (list agents / capabilities)
+- curl -i "http://BIND_HOST_PORTBASE_PATH/agents"
+- Example:
+  curl -i "http://127.0.0.1:8080/openclaw/agents"
+
+3) POST a typical agent request (JSON)
+- This is an example of a POST run/execute endpoint — replace route, body and headers to match your gateway API:
+  curl -i -X POST "http://BIND_HOST_PORTBASE_PATH/agent/run" \
+    -H "Content-Type: application/json" \
+    -d '{"input":"hello","options":{}}'
+- Compare status code, JSON keys, error shape vs your existing gateway.
+
+4) JWT-protected endpoints
+- If JWT is enabled, include Authorization header:
+  curl -i -H "Authorization: Bearer <TOKEN>" "http://BIND_HOST_PORTBASE_PATH/agents"
+
+5) WebSocket (if gateway supports WS agent streams)
+- Using wscat:
+  wscat -c "ws://BIND_HOST_PORTBASE_PATH/ws" \
+    -H "Authorization: Bearer <TOKEN>"
+- Or with JavaScript:
+  const ws = new WebSocket("ws://127.0.0.1:8080/openclaw/ws", { headers: { Authorization: "Bearer <TOKEN>" } });
+
+6) Long-poll / SSE streaming
+- curl -N "http://BIND_HOST_PORTBASE_PATH/stream?session=..."  (use -N to not buffer)
+
+How to compare responses
+- Record a few representative calls against your current gateway (status code, response headers, Content-Type, JSON schema).
+- Run the same calls against the new binary and compare:
+  - HTTP status codes
+  - Response headers (CORS, auth, content-type)
+  - JSON field names and nesting
+  - Streaming connection behavior (do you get same frames / events?)
+- If differences exist, inspect internal/openclaw/server to find route handlers and config defaults.
+
