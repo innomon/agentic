@@ -3,12 +3,17 @@ package registry
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/agent/workflowagents/loopagent"
 	"google.golang.org/adk/agent/workflowagents/parallelagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
+	"google.golang.org/adk/tool/mcptoolset"
 )
 
 type AgentBase struct {
@@ -17,11 +22,16 @@ type AgentBase struct {
 	SubAgents   []string `yaml:"sub_agents"`
 }
 
+type MCPToolsetConfig struct {
+	Endpoint string `yaml:"endpoint"`
+}
+
 type LLMAgentConfig struct {
 	AgentBase   `yaml:",inline"`
-	Model       string   `yaml:"model"`
-	Instruction string   `yaml:"instruction"`
-	Tools       []string `yaml:"tools"`
+	Model       string            `yaml:"model"`
+	Instruction string            `yaml:"instruction"`
+	Tools       []string          `yaml:"tools"`
+	MCPToolsets []MCPToolsetConfig `yaml:"mcp_toolsets"`
 }
 
 func (c *LLMAgentConfig) Validate() error {
@@ -67,6 +77,21 @@ func llmCreator(ctx context.Context, name string, cfg *LLMAgentConfig, models Mo
 		agentCfg.Tools = t
 	}
 
+	// Add MCP toolsets if specified
+	for _, mcpCfg := range cfg.MCPToolsets {
+		endpoint := expandEnvWithDefaults(mcpCfg.Endpoint)
+		ts, err := mcptoolset.New(mcptoolset.Config{
+			Transport: &mcp.StreamableClientTransport{
+				Endpoint: endpoint,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MCP toolset for endpoint %q: %w", endpoint, err)
+		}
+		agentCfg.Toolsets = append(agentCfg.Toolsets, ts)
+		log.Printf("Agent %q: added MCP toolset from %s", name, endpoint)
+	}
+
 	return llmagent.New(agentCfg)
 }
 
@@ -98,6 +123,19 @@ func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRe
 			SubAgents:   sub,
 		},
 		MaxIterations: cfg.MaxIterations,
+	})
+}
+
+// expandEnvWithDefaults expands ${VAR:-default} and ${VAR} patterns in s.
+func expandEnvWithDefaults(s string) string {
+	return os.Expand(s, func(key string) string {
+		if name, def, ok := strings.Cut(key, ":-"); ok {
+			if v := os.Getenv(name); v != "" {
+				return v
+			}
+			return def
+		}
+		return os.Getenv(key)
 	})
 }
 

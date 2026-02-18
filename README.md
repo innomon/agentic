@@ -10,6 +10,7 @@ A config-driven agentic framework built on Google's [ADK-Go](https://github.com/
 - **Multiple Agent Types**: LLM, sequential, parallel, loop, routing, and WASM agents
 - **Multi-Model Support**: Gemini, OpenAI, Ollama (local), and custom providers
 - **WebAssembly Extensions**: Sandboxed WASM tools and agents via wazero with security policies, OCI registry support, and per-invocation isolation
+- **MCP Integration**: Connect agents to external [Model Context Protocol](https://modelcontextprotocol.io/) servers for dynamic tool discovery
 - **Role-Based Routing**: Route users to agents based on database-stored roles with admin config override and contextual disambiguation
 - **Persistent Memory**: Database-backed conversation memory (PostgreSQL, SQLite)
 - **Logic-Based Memory**: Prolog-powered knowledge base with fact assertion, logical queries, and inference via [ichiban/prolog](https://github.com/ichiban/prolog)
@@ -208,6 +209,7 @@ agents:
 | `model` | Model name from models config | Yes (for `llm`) |
 | `sub_agents` | List of sub-agent names | No |
 | `tools` | List of tool names | No |
+| `mcp_toolsets` | List of MCP server endpoints (see [MCP Toolsets](#mcp-toolsets)) | No |
 | `instruction` | System prompt | Yes (for `llm`) |
 | `max_iterations` | Loop iterations (0 = until escalation) | No (for `loop`) |
 
@@ -338,6 +340,7 @@ registry.RegisterToolHandler("get_weather", func(ctx context.Context, args map[s
 | `gemini` | Gemini built-in tools (e.g., `google_search`) |
 | `userdb` | GORM-backed user profile CRUD |
 | `wasm` | Sandboxed WebAssembly module |
+| `mcp` | Remote tools via MCP server (Streamable HTTP transport) |
 
 #### UserDB Tool Type
 
@@ -406,6 +409,38 @@ agents:
 ```
 
 The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.log_msg`.
+
+#### MCP Toolsets
+
+Connect agents to external [Model Context Protocol](https://modelcontextprotocol.io/) servers. Unlike individual tool definitions, MCP toolsets dynamically discover all tools exposed by a remote MCP server at startup.
+
+```yaml
+agents:
+  MyAgent:
+    model: gemini-flash
+    mcp_toolsets:
+      - endpoint: "${MCP_SERVER_URL:-http://localhost:8082}/mcp"
+    instruction: |
+      You are an assistant with access to external tools.
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `endpoint` | MCP server URL (Streamable HTTP transport) | Yes |
+
+Endpoints support environment variable expansion with defaults using `${VAR:-default}` syntax.
+
+MCP toolsets can be combined with regular `tools` on the same agent:
+
+```yaml
+agents:
+  MyAgent:
+    model: gemini-flash
+    tools: [get_weather]
+    mcp_toolsets:
+      - endpoint: http://localhost:8082/mcp
+      - endpoint: http://localhost:8083/mcp
+```
 
 ### Logic Query Tool
 

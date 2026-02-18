@@ -242,6 +242,28 @@ Operations: `get_profile`, `create_user`, `update_status`, `update_roles`, `upda
 - `get_profile` returns `{"found": false}` for unknown users (enables anonymous routing).
 - Caller ID for audit is extracted from JWT claims (`auth.ClaimsFromContext`).
 
+## MCP Toolsets
+
+Agents can connect to external [Model Context Protocol](https://modelcontextprotocol.io/) servers to dynamically discover tools at startup. Unlike YAML-defined tools, MCP toolsets use Streamable HTTP transport to fetch tool schemas from a remote server.
+
+```yaml
+agents:
+  MyAgent:
+    model: gemini-flash
+    mcp_toolsets:
+      - endpoint: "${MCP_SERVER_URL:-http://localhost:8082}/mcp"
+    instruction: |
+      You are an assistant with access to external tools.
+```
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `endpoint` | MCP server URL (Streamable HTTP transport) | Yes |
+
+Endpoints support `${VAR:-default}` environment variable expansion (via `os.Expand`).
+
+MCP toolsets attach to `llmagent.Config.Toolsets` (not `Tools`) and can be combined with regular YAML-defined tools on the same agent.
+
 ## Custom Agent Types
 
 The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
