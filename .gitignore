@@ -34,3 +34,6 @@ Thumbs.db
 # Secrets
 secrets/
 *.pem
+
+# Firebase MCP crap
+firebase-debug.log
