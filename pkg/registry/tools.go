@@ -75,6 +75,26 @@ func DecodeToolConfig(name string, node *yaml.Node) (typeName string, cfg any, e
 	return typeName, cfg, nil
 }
 
+func DecodeSandboxConfig(name string, node *yaml.Node) (typeName string, cfg any, err error) {
+	var d struct {
+		Type string `yaml:"type"`
+	}
+	if err := node.Decode(&d); err != nil {
+		return "", nil, fmt.Errorf("failed to read type: %w", err)
+	}
+	typeName = d.Type
+	if typeName == "" {
+		return "", nil, fmt.Errorf("sandbox %q: missing type", name)
+	}
+
+	var sandboxCfg SandboxToolConfig
+	if err := node.Decode(&sandboxCfg); err != nil {
+		return "", nil, fmt.Errorf("sandbox %q: %w", name, err)
+	}
+
+	return typeName, &sandboxCfg, nil
+}
+
 func createTool(ctx context.Context, typeName, name string, cfg any) (tool.Tool, error) {
 	e, ok := compreg.Lookup[toolFactory]("tool:" + typeName)
 	if !ok {
@@ -124,4 +144,26 @@ func geminiToolCreator(_ context.Context, name string, cfg *GeminiToolConfig) (t
 func init() {
 	RegisterToolType("builtin", builtinToolCreator)
 	RegisterToolType("gemini", geminiToolCreator)
+	RegisterToolType("sandbox", sandboxToolCreator)
+}
+
+type SandboxToolConfig struct {
+	ToolBase `yaml:",inline"`
+	Type     string            `yaml:"type"`
+	Memory   int               `yaml:"memory_limit_mb"`
+	Timeout  string            `yaml:"timeout"` // e.g., "5s"
+	Tools    []string          `yaml:"allow_tools"`
+	Net      []string          `yaml:"allow_net"`
+	Env      map[string]string `yaml:"env"`
+}
+
+func sandboxToolCreator(ctx context.Context, name string, cfg *SandboxToolConfig) (tool.Tool, error) {
+	// The actual implementation of the tool handler will be added later
+	// after the SandboxManager is integrated into the global registry.
+	return functiontool.New(functiontool.Config{
+		Name:        name,
+		Description: cfg.Description,
+	}, func(ctx tool.Context, args map[string]any) (any, error) {
+		return nil, fmt.Errorf("sandbox tool %q not fully implemented", name)
+	})
 }

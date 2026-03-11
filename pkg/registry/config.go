@@ -10,6 +10,7 @@ type RawConfig struct {
 	Models    map[string]*yaml.Node
 	Agents    map[string]*yaml.Node
 	Tools     map[string]*yaml.Node
+	Sandboxes map[string]*yaml.Node
 	Session   *yaml.Node
 	Memory    *yaml.Node
 	Auth      *yaml.Node
@@ -20,6 +21,7 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 	r.Models = make(map[string]*yaml.Node)
 	r.Agents = make(map[string]*yaml.Node)
 	r.Tools = make(map[string]*yaml.Node)
+	r.Sandboxes = make(map[string]*yaml.Node)
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("expected mapping node")
 	}
@@ -45,6 +47,12 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			if val.Kind == yaml.MappingNode {
 				for j := 0; j < len(val.Content); j += 2 {
 					r.Tools[val.Content[j].Value] = val.Content[j+1]
+				}
+			}
+		case "sandboxes":
+			if val.Kind == yaml.MappingNode {
+				for j := 0; j < len(val.Content); j += 2 {
+					r.Sandboxes[val.Content[j].Value] = val.Content[j+1]
 				}
 			}
 		case "session":
@@ -75,6 +83,12 @@ type AgentEntry struct {
 }
 
 type ToolEntry struct {
+	Name   string
+	Type   string
+	Config any
+}
+
+type SandboxEntry struct {
 	Name   string
 	Type   string
 	Config any
@@ -117,6 +131,7 @@ type Config struct {
 	Models    map[string]ModelEntry
 	Agents    map[string]AgentEntry
 	Tools     map[string]ToolEntry
+	Sandboxes map[string]SandboxEntry
 	Session   *SessionConfig
 	Memory    *MemoryConfig
 	Auth      *AuthConfig
@@ -128,6 +143,7 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 		Models:    make(map[string]ModelEntry),
 		Agents:    make(map[string]AgentEntry),
 		Tools:     make(map[string]ToolEntry),
+		Sandboxes: make(map[string]SandboxEntry),
 		RootAgent: raw.RootAgent,
 	}
 
@@ -182,6 +198,18 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 			return nil, err
 		}
 		cfg.Tools[name] = ToolEntry{
+			Name:   name,
+			Type:   typeName,
+			Config: cfgAny,
+		}
+	}
+
+	for name, node := range raw.Sandboxes {
+		typeName, cfgAny, err := DecodeSandboxConfig(name, node)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Sandboxes[name] = SandboxEntry{
 			Name:   name,
 			Type:   typeName,
 			Config: cfgAny,
