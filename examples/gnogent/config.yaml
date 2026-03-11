@@ -30,7 +30,7 @@ agents:
       dsn: postgres://user:pass@localhost:5432/gnogent?sslmode=disable
       auto_migrate: true
     gnovm:
-      source_file: ./internal/gnogent/gno/agent.gno
+      source_file: ./pkg/gnogent/gno/agent.gno
       pkg_path: gno/agent
     sub_agents:
       - ChatAgent

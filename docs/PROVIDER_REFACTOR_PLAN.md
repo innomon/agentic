@@ -64,7 +64,7 @@ package registry
 
 import (
 	"fmt"
-	"github.com/innomon/agentic/internal/gnogent/storage"
+	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"google.golang.org/adk/session"
 	sessiondb "google.golang.org/adk/session/database"
 	"gorm.io/driver/postgres"
@@ -119,8 +119,8 @@ package registry
 
 import (
 	"fmt"
-	"github.com/innomon/agentic/internal/gnogent/storage"
-	"github.com/innomon/agentic/internal/memory"
+	"github.com/innomon/agentic/pkg/gnogent/storage"
+	"github.com/innomon/agentic/pkg/memory"
 	adkmemory "google.golang.org/adk/memory"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

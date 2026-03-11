@@ -6,14 +6,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/innomon/agentic/internal/auth"
-	"github.com/innomon/agentic/internal/config"
-	_ "github.com/innomon/agentic/internal/gnogent"
-	"github.com/innomon/agentic/internal/openclaw/server"
-	_ "github.com/innomon/agentic/internal/prologmem"
-	"github.com/innomon/agentic/internal/registry"
-	_ "github.com/innomon/agentic/internal/routing"
-	_ "github.com/innomon/agentic/internal/wasm"
+	"github.com/innomon/agentic/pkg/auth"
+	"github.com/innomon/agentic/pkg/config"
+	_ "github.com/innomon/agentic/pkg/gnogent"
+	"github.com/innomon/agentic/pkg/openclaw/server"
+	_ "github.com/innomon/agentic/pkg/prologmem"
+	"github.com/innomon/agentic/pkg/registry"
+	_ "github.com/innomon/agentic/pkg/routing"
+	_ "github.com/innomon/agentic/pkg/wasm"
 )
 
 func main() {

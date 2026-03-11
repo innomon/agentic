@@ -517,7 +517,7 @@ func (s *GormSessionService) SaveSession(ctx context.Context, sess *session.Sess
 ├── main.go                 # Application Entry
 ├── gno/
 │   └── agent.gno           # GnoVM Logic (Pruning, History)
-├── internal/
+├── pkg/
 │   ├── gnovm/
 │   │   └── wrapper.go      # GnoVM Machine/Store Wrapper
 │   └── storage/
@@ -558,7 +558,7 @@ This repository implements a stateful AI agent that uses **GnoVM** for determini
 ├── docker-compose.yml       # pgvector/Postgres setup
 ├── gno/
 │   └── agent.gno            # Deterministic brain logic (History & Pruning)
-├── internal/
+├── pkg/
 │   ├── gnovm/               # GnoVM Store/Machine wrappers
 │   └── storage/             # GORM models and ADK Session Service
 └── README.md

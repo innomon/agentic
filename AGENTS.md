@@ -109,7 +109,7 @@ agentic/
 │   └── gomlx/                   # Local embedded LLM example
 │       ├── config.yaml
 │       └── README.md
-├── internal/
+├── pkg/
 │   ├── compreg/
 │   │   └── compreg.go           # Global component register (shared map)
 │   ├── config/
@@ -269,7 +269,7 @@ MCP toolsets attach to `llmagent.Config.Toolsets` (not `Tools`) and can be combi
 The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
 
 ```go
-import "github.com/innomon/agentic/internal/registry"
+import "github.com/innomon/agentic/pkg/registry"
 
 type MyAgentConfig struct {
     registry.AgentBase `yaml:",inline"`
@@ -435,7 +435,7 @@ Safety: All queries are wrapped with a context timeout. Input is sanitized to re
 Register model providers with custom config schemas:
 
 ```go
-import "github.com/innomon/agentic/internal/registry"
+import "github.com/innomon/agentic/pkg/registry"
 
 type MyProviderConfig struct {
     registry.ModelBase `yaml:",inline"`

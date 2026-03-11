@@ -478,7 +478,7 @@ Standard predicates: `mem_fact/3`, `mem_rel/3`, `mem_context/3`, `agent_rule/3`.
 #### Custom Agent Types
 
 ```go
-import "github.com/innomon/agentic/internal/registry"
+import "github.com/innomon/agentic/pkg/registry"
 
 type MyAgentConfig struct {
     registry.AgentBase `yaml:",inline"`
@@ -495,7 +495,7 @@ func init() {
 #### Custom Tool Types
 
 ```go
-import "github.com/innomon/agentic/internal/registry"
+import "github.com/innomon/agentic/pkg/registry"
 
 type APIToolConfig struct {
     registry.ToolBase `yaml:",inline"`
@@ -512,7 +512,7 @@ func init() {
 #### Custom Model Providers
 
 ```go
-import "github.com/innomon/agentic/internal/registry"
+import "github.com/innomon/agentic/pkg/registry"
 
 type MyProviderConfig struct {
     registry.ModelBase `yaml:",inline"`
@@ -680,7 +680,7 @@ agentic/
 │   ├── search/                      # Web search agent
 │   ├── prolog-memory/                # Logic-based Prolog knowledge agent
 │   └── wasm-sequential/             # WASM orchestrator
-├── internal/
+├── pkg/
 │   ├── auth/                        # JWT verification middleware
 │   ├── compreg/                     # Component register
 │   ├── config/                      # Config file loader

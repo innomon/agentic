@@ -45,7 +45,7 @@ Before starting, read `docs/GOMLX_SPECS.md` for the full specification.
    }
    ```
 
-4. **Import side-effect** — Add `_ "github.com/innomon/agentic/internal/gomlx"` to `main.go`
+4. **Import side-effect** — Add `_ "github.com/innomon/agentic/pkg/gomlx"` to `main.go`
 
 5. **Stub `GoMLXModel`** — Implement `model.LLM` interface with `Name()` returning the model ID and `GenerateContent()` returning a "not yet implemented" error.
 
@@ -87,7 +87,7 @@ go build -o agentic .
 
 ### Verification
 ```bash
-go test ./internal/gomlx/ -run TestGGUFParse -v
+go test ./pkg/gomlx/ -run TestGGUFParse -v
 ```
 
 ### Deliverables
@@ -133,7 +133,7 @@ go test ./internal/gomlx/ -run TestGGUFParse -v
 
 ### Verification
 ```bash
-go test ./internal/gomlx/ -run TestTokenizer -v
+go test ./pkg/gomlx/ -run TestTokenizer -v
 ```
 
 ### Deliverables
@@ -175,8 +175,8 @@ go test ./internal/gomlx/ -run TestTokenizer -v
 
 ### Verification
 ```bash
-go test ./internal/gomlx/ -run TestDequant -v
-go test ./internal/gomlx/ -run TestWeightLoading -v
+go test ./pkg/gomlx/ -run TestDequant -v
+go test ./pkg/gomlx/ -run TestWeightLoading -v
 ```
 
 ### Deliverables
@@ -223,7 +223,7 @@ go test ./internal/gomlx/ -run TestWeightLoading -v
 
 ### Verification
 ```bash
-go test ./internal/gomlx/arch/ -run TestLlamaForward -v
+go test ./pkg/gomlx/arch/ -run TestLlamaForward -v
 ```
 
 ### Deliverables
@@ -264,7 +264,7 @@ go test ./internal/gomlx/arch/ -run TestLlamaForward -v
 
 ### Verification
 ```bash
-go test ./internal/gomlx/ -run TestGenerate -v -timeout 120s
+go test ./pkg/gomlx/ -run TestGenerate -v -timeout 120s
 ```
 
 ### Deliverables
@@ -321,7 +321,7 @@ go test ./internal/gomlx/ -run TestGenerate -v -timeout 120s
 
 ### Verification
 ```bash
-go test ./internal/gomlx/ -run TestModelLLM -v -timeout 120s
+go test ./pkg/gomlx/ -run TestModelLLM -v -timeout 120s
 ```
 
 ### Deliverables

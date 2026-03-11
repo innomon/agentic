@@ -14,7 +14,7 @@ The system will follow a "Registry" pattern to decouple the instruction logic (M
 .
 ├── cmd/
 │   └── agent/main.go        # Entry point
-├── internal/
+├── pkg/
 │   ├── skills/              # Skill loading & parsing logic
 │   ├── registry/            # Agent management & supervisor logic
 │   └── mcp/                 # (Optional) MCP tool connectors

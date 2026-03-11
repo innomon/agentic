@@ -25,7 +25,7 @@ Most AI agents lose their "train of thought" if the server restarts or sessions 
 ├── cmd/agent/main.go        # Entry point & ADK Orchestrator
 ├── gno/
 │   └── agent.gno            # Deterministic brain logic (Short-term memory)
-├── internal/
+├── pkg/
 │   ├── auth/                # Asymmetric JWT (RS256) verification
 │   ├── gnovm/               # GnoVM machine & store wrappers
 │   ├── health/              # Pre-flight diagnostic services

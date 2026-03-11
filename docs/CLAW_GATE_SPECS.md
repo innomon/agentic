@@ -728,7 +728,7 @@ Github Copilot answers:
 Short answer: Mostly yes — this binary is implemented to run an "OpenClaw gateway" backed by Agentic, but it may not be a guaranteed drop‑in replacement in every environment without verifying configuration and API compatibility.
 
 Why it looks like an OpenClaw gateway
-- main.go imports github.com/innomon/agentic/internal/openclaw/server and calls server.NewAgentBridge(launcherConfig) to create an AgentBridge, then creates server.New(server.Config{}) and sets the bridge as the agent handler. It also logs "Starting OpenClaw gateway server..." — so it is explicitly the OpenClaw gateway entrypoint for this repo.
+- main.go imports github.com/innomon/agentic/pkg/openclaw/server and calls server.NewAgentBridge(launcherConfig) to create an AgentBridge, then creates server.New(server.Config{}) and sets the bridge as the agent handler. It also logs "Starting OpenClaw gateway server..." — so it is explicitly the OpenClaw gateway entrypoint for this repo.
 
 Caveats / things that can break drop‑in behavior
 - server.Config{} here uses the package defaults. If your current OpenClaw gateway was started with non‑default bind address/path/TLS/middleware, you must make the new binary use the same settings (edit the YAML config or server code).
