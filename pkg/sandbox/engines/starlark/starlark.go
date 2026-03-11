@@ -11,11 +11,11 @@ import (
 )
 
 type StarlarkVM struct {
-	mu       sync.Mutex
-	globals  starlark.StringDict
-	thread   *starlark.Thread
-	cfg      sandbox.VMConfig
-	host     *sandbox.HostContext
+	mu      sync.Mutex
+	globals starlark.StringDict
+	thread  *starlark.Thread
+	cfg     sandbox.VMConfig
+	host    *sandbox.HostContext
 }
 
 func NewStarlarkVM() sandbox.SandboxVM {
@@ -52,6 +52,40 @@ func (v *StarlarkVM) registerBuiltins() {
 	})
 }
 
+func (v *StarlarkVM) injectTools(ctx context.Context) error {
+	if v.host == nil || v.host.Tools == nil || len(v.cfg.AllowTools) == 0 {
+		return nil
+	}
+
+	for _, toolName := range v.cfg.AllowTools {
+		name := toolName
+		v.globals[name] = starlark.NewBuiltin(name, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var toolArgs map[string]any
+			if len(args) > 0 {
+				if dict, ok := args[0].(*starlark.Dict); ok {
+					if converted := v.fromStarlarkValue(dict); converted != nil {
+						if m, ok := converted.(map[string]any); ok {
+							toolArgs = m
+						}
+					}
+				}
+			}
+			if toolArgs == nil {
+				toolArgs = make(map[string]any)
+			}
+
+			res, err := v.host.Tools.CallTool(ctx, name, toolArgs)
+			if err != nil {
+				return starlark.None, err
+			}
+
+			return v.toStarlarkValue(res), nil
+		})
+	}
+
+	return nil
+}
+
 func (v *StarlarkVM) Run(ctx context.Context, code string) (any, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -60,51 +94,87 @@ func (v *StarlarkVM) Run(ctx context.Context, code string) (any, error) {
 		return nil, fmt.Errorf("Starlark VM not initialized")
 	}
 
-	// For Starlark, we usually execute as a script. 
-	// To get a return value, we can assume the last expression or a specific variable 'result'.
+	if err := v.injectTools(ctx); err != nil {
+		return nil, err
+	}
+
 	dict, err := starlark.ExecFile(v.thread, "sandbox.star", code, v.globals)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update globals for persistence if needed, but for now we just return something
-	// Let's look for 'result' variable or return the whole dict?
-	// Consistent with other VMs, we might want a single result.
 	if res, ok := dict["result"]; ok {
-		return v.convertValue(res), nil
+		return v.fromStarlarkValue(res), nil
 	}
 
 	return nil, nil
 }
 
-func (v *StarlarkVM) convertValue(val starlark.Value) any {
-	switch v := val.(type) {
+func (v *StarlarkVM) fromStarlarkValue(val starlark.Value) any {
+	switch val := val.(type) {
 	case starlark.String:
-		return string(v)
+		return string(val)
 	case starlark.Int:
-		i, _ := v.Int64()
+		i, _ := val.Int64()
 		return i
 	case starlark.Float:
-		return float64(v)
+		return float64(val)
 	case starlark.Bool:
-		return bool(v)
+		return bool(val)
 	case *starlark.List:
-		var res []any
-		for i := 0; i < v.Len(); i++ {
-			res = append(res, v.convertValue(v.Index(i)))
+		res := make([]any, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			res[i] = v.fromStarlarkValue(val.Index(i))
 		}
 		return res
 	case *starlark.Dict:
 		res := make(map[string]any)
-		for _, item := range v.Items() {
-			key := item.Index(0).String()
-			res[key] = v.convertValue(item.Index(1))
+		for _, item := range val.Items() {
+			keyVal := item.Index(0)
+			var key string
+			if s, ok := keyVal.(starlark.String); ok {
+				key = string(s)
+			} else {
+				key = keyVal.String()
+			}
+			res[key] = v.fromStarlarkValue(item.Index(1))
 		}
 		return res
 	case starlark.NoneType:
 		return nil
 	default:
 		return val.String()
+	}
+}
+
+func (v *StarlarkVM) toStarlarkValue(val any) starlark.Value {
+	switch val := val.(type) {
+	case string:
+		return starlark.String(val)
+	case int:
+		return starlark.MakeInt(val)
+	case int64:
+		return starlark.MakeInt64(val)
+	case float64:
+		return starlark.Float(val)
+	case bool:
+		return starlark.Bool(val)
+	case []any:
+		res := make([]starlark.Value, len(val))
+		for i, item := range val {
+			res[i] = v.toStarlarkValue(item)
+		}
+		return starlark.NewList(res)
+	case map[string]any:
+		res := &starlark.Dict{}
+		for k, item := range val {
+			res.SetKey(starlark.String(k), v.toStarlarkValue(item))
+		}
+		return res
+	case nil:
+		return starlark.None
+	default:
+		return starlark.String(fmt.Sprint(val))
 	}
 }
 

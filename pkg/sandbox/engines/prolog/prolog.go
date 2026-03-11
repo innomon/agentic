@@ -3,7 +3,6 @@ package prolog
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/innomon/agentic/pkg/sandbox"
@@ -34,10 +33,40 @@ func (v *PrologVM) Init(cfg sandbox.VMConfig, host *sandbox.HostContext) error {
 	// Register log predicate: log(Msg)
 	v.interpreter.Register1(engine.NewAtom("log"), func(vm *engine.VM, term engine.Term, cont engine.Cont, env *engine.Env) *engine.Promise {
 		if v.host != nil && v.host.Logger != nil {
-			fmt.Fprintln(v.host.Logger, vm.Brief(term, env))
+			fmt.Fprintln(v.host.Logger, fmt.Sprint(env.Resolve(term)))
 		}
 		return cont(env)
 	})
+
+	return nil
+}
+
+func (v *PrologVM) injectTools(ctx context.Context) error {
+	if v.host == nil || v.host.Tools == nil || len(v.cfg.AllowTools) == 0 {
+		return nil
+	}
+
+	for _, toolName := range v.cfg.AllowTools {
+		name := toolName
+		// Register tool as a predicate: tool_name(Args, Result)
+		v.interpreter.Register2(engine.NewAtom(name), func(vm *engine.VM, args engine.Term, result engine.Term, cont engine.Cont, env *engine.Env) *engine.Promise {
+			// Convert Prolog args to Go map
+			goArgs := v.fromPrologTerm(args, env)
+			argsMap, ok := goArgs.(map[string]any)
+			if !ok {
+				argsMap = make(map[string]any)
+			}
+
+			res, err := v.host.Tools.CallTool(ctx, name, argsMap)
+			if err != nil {
+				return engine.Error(fmt.Errorf("%s failed: %w", name, err))
+			}
+
+			// Convert Go result back to Prolog term and unify with 'result'
+			resTerm := v.toPrologTerm(res)
+			return engine.Unify(vm, result, resTerm, cont, env)
+		})
+	}
 
 	return nil
 }
@@ -50,17 +79,12 @@ func (v *PrologVM) Run(ctx context.Context, code string) (any, error) {
 		return nil, fmt.Errorf("Prolog VM not initialized")
 	}
 
-	// For Prolog, we might want to consult the code or query it directly.
-	// If it's a query, we return the first solution's bindings.
-	
-	// Check if it's a fact/rule (consult) or a query
-	// Simple heuristic: if it ends with a dot but doesn't look like a query, consult it.
-	// For now, let's assume we can execute it.
-	
-	// Try to execute as a query
+	if err := v.injectTools(ctx); err != nil {
+		return nil, err
+	}
+
 	sols, err := v.interpreter.QueryContext(ctx, code)
 	if err != nil {
-		// If query fails, maybe it's code to be consulted
 		if err := v.interpreter.ExecContext(ctx, code); err != nil {
 			return nil, err
 		}
@@ -69,13 +93,67 @@ func (v *PrologVM) Run(ctx context.Context, code string) (any, error) {
 	defer sols.Close()
 
 	if sols.Next() {
-		var solution any
-		// For now, return a placeholder or simple representation of bindings
-		// We'd need to iterate and convert engine.Term to Go types
+		// Just return success for now
 		return "solution found", nil
 	}
 
 	return "no solution", nil
+}
+
+func (v *PrologVM) fromPrologTerm(term engine.Term, env *engine.Env) any {
+	switch t := env.Resolve(term).(type) {
+	case engine.Atom:
+		return t.String()
+	case engine.Integer:
+		return int64(t)
+	case engine.Float:
+		return float64(t)
+	case engine.Compound:
+		// Basic conversion for lists and simple structures
+		if t.Functor() == engine.NewAtom(".") && t.Arity() == 2 {
+			// It's a list
+			var res []any
+			curr := t
+			for {
+				res = append(res, v.fromPrologTerm(curr.Arg(0), env))
+				next := env.Resolve(curr.Arg(1))
+				if nextAtom, ok := next.(engine.Atom); ok && nextAtom == engine.NewAtom("[]") {
+					break
+				}
+				if nextCompound, ok := next.(engine.Compound); ok && nextCompound.Functor() == engine.NewAtom(".") && nextCompound.Arity() == 2 {
+					curr = nextCompound
+				} else {
+					break
+				}
+			}
+			return res
+		}
+		return fmt.Sprint(t)
+	default:
+		return fmt.Sprint(t)
+	}
+}
+
+func (v *PrologVM) toPrologTerm(val any) engine.Term {
+	switch val := val.(type) {
+	case string:
+		return engine.NewAtom(val)
+	case int:
+		return engine.Integer(val)
+	case int64:
+		return engine.Integer(val)
+	case float64:
+		return engine.Float(val)
+	case bool:
+		if val {
+			return engine.NewAtom("true")
+		}
+		return engine.NewAtom("false")
+	case nil:
+		return engine.NewAtom("nil")
+	default:
+		return engine.NewAtom(fmt.Sprint(val))
+	}
 }
 
 func (v *PrologVM) Reset() error {

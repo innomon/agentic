@@ -1,0 +1,56 @@
+# Example configuration for VM Sandbox Framework
+
+tools:
+  google_search:
+    type: gemini
+    tool: google_search
+  
+  http_get:
+    type: builtin
+    description: "Fetch content from a URL"
+
+  js_run:
+    type: sandbox
+    description: "Run JavaScript code in a secure sandbox"
+    type: quickjs
+    memory_limit_mb: 64
+    timeout: "2s"
+    allow_tools:
+      - google_search
+      - http_get
+
+  py_run:
+    type: sandbox
+    description: "Run Python-like Starlark code in a secure sandbox"
+    type: starlark
+    timeout: "1s"
+    allow_tools:
+      - google_search
+
+sandboxes:
+  # Named sandboxes that can be referenced by the 'sandbox_run' tool
+  # or used as templates for sandbox tools.
+  default_js:
+    type: quickjs
+    memory_limit_mb: 128
+    timeout: "5s"
+    allow_tools:
+      - google_search
+
+agents:
+  code_interpreter:
+    type: llmagent
+    model: gemini-2.0-flash
+    instruction: |
+      You are a helpful assistant with code execution capabilities.
+      If you need to perform calculations, data processing, or search the web via code, 
+      use the provided sandbox tools.
+      
+      For JavaScript execution, use 'js_run'.
+      For Python-like logic, use 'py_run'.
+      
+      Example JS usage:
+      js_run({code: "const res = 10 * 20; log('Result is: ' + res); res;"})
+    tools:
+      - js_run
+      - py_run

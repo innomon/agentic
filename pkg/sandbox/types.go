@@ -5,8 +5,16 @@ import (
 	"io"
 	"time"
 
+	"google.golang.org/adk/agent"
 	"google.golang.org/adk/tool"
 )
+
+// ToolRegistry is a subset of registry.Registry needed for sandboxes.
+type ToolRegistry interface {
+	GetTools(ctx context.Context, names []string) ([]tool.Tool, error)
+	// CallTool calls a specific tool by name with arguments.
+	CallTool(ctx context.Context, name string, args map[string]any) (map[string]any, error)
+}
 
 // SandboxVM represents a specific Virtual Machine engine (QuickJS, Prolog, etc.)
 type SandboxVM interface {
@@ -36,13 +44,13 @@ type VMConfig struct {
 // HostContext provides the bridge between the VM and the host environment.
 type HostContext struct {
 	// Tools are the external tools available to the VM.
-	Tools tool.ToolRegistry
+	Tools ToolRegistry
 
-	// Logger receives logs from the VM.
+	// InvocationContext provides access to agent state and memory.
+	InvocationContext agent.InvocationContext
+
+	// Logger is the destination for all VM logs.
 	Logger io.Writer
-
-	// Registry is used to look up additional components if needed.
-	// (Optional: can be expanded based on requirements)
 }
 
 // SandboxResult contains the output of a sandbox execution.

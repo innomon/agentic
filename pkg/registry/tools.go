@@ -3,8 +3,10 @@ package registry
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/innomon/agentic/pkg/compreg"
+	"github.com/innomon/agentic/pkg/sandbox"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 	"google.golang.org/adk/tool/geminitool"
@@ -24,18 +26,18 @@ type Param struct {
 	Required    bool   `yaml:"required"`
 }
 
-type ToolCreator[T any] func(ctx context.Context, name string, cfg *T) (tool.Tool, error)
+type ToolCreator[T any] func(ctx context.Context, name string, cfg *T, sandboxes SandboxRegistry) (tool.Tool, error)
 
 type toolFactory struct {
 	decode func(*yaml.Node) (any, error)
-	create func(ctx context.Context, name string, cfg any) (tool.Tool, error)
+	create func(ctx context.Context, name string, cfg any, sandboxes SandboxRegistry) (tool.Tool, error)
 }
 
 func RegisterToolType[T any](typeName string, creator ToolCreator[T]) {
 	compreg.Set("tool:"+typeName, toolFactory{
 		decode: decodeCfg[T],
-		create: func(ctx context.Context, name string, a any) (tool.Tool, error) {
-			return creator(ctx, name, a.(*T))
+		create: func(ctx context.Context, name string, a any, sandboxes SandboxRegistry) (tool.Tool, error) {
+			return creator(ctx, name, a.(*T), sandboxes)
 		},
 	})
 }
@@ -95,19 +97,19 @@ func DecodeSandboxConfig(name string, node *yaml.Node) (typeName string, cfg any
 	return typeName, &sandboxCfg, nil
 }
 
-func createTool(ctx context.Context, typeName, name string, cfg any) (tool.Tool, error) {
+func createTool(ctx context.Context, typeName, name string, cfg any, sandboxes SandboxRegistry) (tool.Tool, error) {
 	e, ok := compreg.Lookup[toolFactory]("tool:" + typeName)
 	if !ok {
 		return nil, fmt.Errorf("unknown tool type %q", typeName)
 	}
-	return e.create(ctx, name, cfg)
+	return e.create(ctx, name, cfg, sandboxes)
 }
 
 type BuiltinToolConfig struct {
 	ToolBase `yaml:",inline"`
 }
 
-func builtinToolCreator(_ context.Context, name string, cfg *BuiltinToolConfig) (tool.Tool, error) {
+func builtinToolCreator(_ context.Context, name string, cfg *BuiltinToolConfig, _ SandboxRegistry) (tool.Tool, error) {
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
@@ -129,7 +131,7 @@ var geminiBuiltins = map[string]func() tool.Tool{
 	"google_search": func() tool.Tool { return geminitool.GoogleSearch{} },
 }
 
-func geminiToolCreator(_ context.Context, name string, cfg *GeminiToolConfig) (tool.Tool, error) {
+func geminiToolCreator(_ context.Context, name string, cfg *GeminiToolConfig, _ SandboxRegistry) (tool.Tool, error) {
 	key := cfg.Tool
 	if key == "" {
 		key = name
@@ -157,13 +159,35 @@ type SandboxToolConfig struct {
 	Env      map[string]string `yaml:"env"`
 }
 
-func sandboxToolCreator(ctx context.Context, name string, cfg *SandboxToolConfig) (tool.Tool, error) {
-	// The actual implementation of the tool handler will be added later
-	// after the SandboxManager is integrated into the global registry.
+type SandboxRunArgs struct {
+	Code    string `json:"code" jsonschema:"description=The code to execute in the sandbox"`
+	Sandbox string `json:"sandbox" jsonschema:"description=The name of the sandbox to use"`
+}
+
+func sandboxToolCreator(ctx context.Context, name string, cfg *SandboxToolConfig, sandboxes SandboxRegistry) (tool.Tool, error) {
+	timeout, _ := time.ParseDuration(cfg.Timeout)
+
+	// Pre-create/warm-up the VM
+	_, err := sandboxes.GetOrCreateVM(name, sandbox.VMConfig{
+		Type:          cfg.Type,
+		MemoryLimitMB: cfg.Memory,
+		Timeout:       timeout,
+		AllowTools:    cfg.Tools,
+		AllowNet:      cfg.Net,
+		Env:           cfg.Env,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
-	}, func(ctx tool.Context, args map[string]any) (any, error) {
-		return nil, fmt.Errorf("sandbox tool %q not fully implemented", name)
+	}, func(ctx tool.Context, args SandboxRunArgs) (any, error) {
+		sandboxName := args.Sandbox
+		if sandboxName == "" {
+			sandboxName = name
+		}
+		return sandboxes.Run(ctx, sandboxName, args.Code)
 	})
 }

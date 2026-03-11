@@ -1,9 +1,12 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"sync"
+	"time"
 )
 
 // VMFactory is a function that creates a new SandboxVM.
@@ -25,14 +28,24 @@ func RegisterVMEngine(typeName string, factory VMFactory) {
 type SandboxManager struct {
 	mu        sync.Mutex
 	sandboxes map[string]SandboxVM
+	configs   map[string]VMConfig
 	hostCtx   *HostContext
+	logBuffer *bytes.Buffer
 }
 
 // NewManager creates a new SandboxManager.
 func NewManager(host *HostContext) *SandboxManager {
+	_ = time.Second // Force usage of time package
+	var buf bytes.Buffer
+	// Wrap the original logger to also capture in our buffer
+	originalLogger := host.Logger
+	host.Logger = io.MultiWriter(originalLogger, &buf)
+
 	return &SandboxManager{
 		sandboxes: make(map[string]SandboxVM),
+		configs:   make(map[string]VMConfig),
 		hostCtx:   host,
+		logBuffer: &buf,
 	}
 }
 
@@ -59,7 +72,43 @@ func (m *SandboxManager) GetOrCreateVM(name string, cfg VMConfig) (SandboxVM, er
 	}
 
 	m.sandboxes[name] = vm
+	m.configs[name] = cfg
 	return vm, nil
+}
+
+// Run executes code in the named sandbox.
+func (m *SandboxManager) Run(ctx context.Context, name string, code string) (*SandboxResult, error) {
+	m.mu.Lock()
+	vm, ok := m.sandboxes[name]
+	cfg := m.configs[name]
+	m.logBuffer.Reset()
+	m.mu.Unlock()
+
+	if !ok {
+		return nil, fmt.Errorf("sandbox %q not found", name)
+	}
+
+	runCtx := ctx
+	if cfg.Timeout > 0 {
+		var cancel context.CancelFunc
+		runCtx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+		defer cancel()
+	}
+
+	val, err := vm.Run(runCtx, code)
+	
+	m.mu.Lock()
+	logs := m.logBuffer.String()
+	m.mu.Unlock()
+
+	if err != nil {
+		return &SandboxResult{Logs: logs}, err
+	}
+
+	return &SandboxResult{
+		Value: val,
+		Logs:  logs,
+	}, nil
 }
 
 // CloseAll closes all managed sandboxes.
@@ -70,5 +119,6 @@ func (m *SandboxManager) CloseAll() {
 	for name, vm := range m.sandboxes {
 		_ = vm.Close()
 		delete(m.sandboxes, name)
+		delete(m.configs, name)
 	}
 }

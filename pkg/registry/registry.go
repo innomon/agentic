@@ -6,26 +6,34 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"time"
 
+	"github.com/innomon/agentic/pkg/sandbox"
 	"google.golang.org/adk/agent"
+	"google.golang.org/adk/internal/toolinternal"
 	"google.golang.org/adk/model"
+	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
+	"google.golang.org/genai"
 )
 
 var (
-	_ ModelRegistry = (*modelAdapter)(nil)
-	_ ToolRegistry  = (*toolAdapter)(nil)
+	_ ModelRegistry           = (*modelAdapter)(nil)
+	_ ToolRegistry            = (*toolAdapter)(nil)
+	_ agent.InvocationContext = (*Registry)(nil)
 )
 
 type loader func(ctx context.Context, r *Registry, name string) (any, error)
 
 type Registry struct {
-	cfg      *Config
-	mu       sync.RWMutex
-	items    map[string]any
-	loaders  map[reflect.Type]loader
-	building map[string]bool
-	closers  []io.Closer
+	cfg       *Config
+	mu        sync.RWMutex
+	items     map[string]any
+	loaders   map[reflect.Type]loader
+	building  map[string]bool
+	closers   []io.Closer
+	sandboxes *sandbox.SandboxManager
+	ctx       context.Context
 }
 
 func New(cfg *Config) *Registry {
@@ -33,14 +41,28 @@ func New(cfg *Config) *Registry {
 		cfg:      cfg,
 		items:    make(map[string]any),
 		building: make(map[string]bool),
+		ctx:      context.Background(),
 	}
 	r.loaders = map[reflect.Type]loader{
 		typeOf[model.LLM]():   loadModel,
 		typeOf[tool.Tool]():   loadTool,
 		typeOf[agent.Agent](): loadAgent,
 	}
+	r.sandboxes = sandbox.NewManager(&sandbox.HostContext{
+		Tools:             &toolAdapter{r},
+		InvocationContext: r,
+		Logger:            io.Discard,
+	})
+	r.closers = append(r.closers, closerFn(func() error {
+		r.sandboxes.CloseAll()
+		return nil
+	}))
 	return r
 }
+
+type closerFn func() error
+
+func (f closerFn) Close() error { return f() }
 
 func (r *Registry) Close() error {
 	var errs []error
@@ -55,6 +77,22 @@ func (r *Registry) Close() error {
 	return nil
 }
 
+// InvocationContext implementation
+func (r *Registry) Deadline() (time.Time, bool) { return r.ctx.Deadline() }
+func (r *Registry) Done() <-chan struct{}       { return r.ctx.Done() }
+func (r *Registry) Err() error                  { return r.ctx.Err() }
+func (r *Registry) Value(key any) any           { return r.ctx.Value(key) }
+
+func (r *Registry) Agent() agent.Agent          { return nil }
+func (r *Registry) Artifacts() agent.Artifacts  { return nil }
+func (r *Registry) Memory() agent.Memory        { return nil }
+func (r *Registry) Session() session.Session    { return nil }
+func (r *Registry) InvocationID() string        { return "sandbox-root" }
+func (r *Registry) Branch() string              { return "root" }
+func (r *Registry) UserContent() *genai.Content { return nil }
+func (r *Registry) RunConfig() *agent.RunConfig { return nil }
+func (r *Registry) EndInvocation()              {}
+func (r *Registry) Ended() bool                 { return false }
 
 func typeOf[T any]() reflect.Type {
 	return reflect.TypeOf((*T)(nil)).Elem()
@@ -155,7 +193,36 @@ func loadTool(ctx context.Context, r *Registry, name string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return createTool(ctx, entry.Type, name, entry.Config)
+	return createTool(ctx, entry.Type, name, entry.Config, &sandboxAdapter{r})
+}
+
+type SandboxRegistry interface {
+	Run(ctx context.Context, name string, code string) (*sandbox.SandboxResult, error)
+	GetOrCreateVM(name string, cfg sandbox.VMConfig) (sandbox.SandboxVM, error)
+	CallTool(ctx context.Context, name string, args map[string]any) (map[string]any, error)
+}
+
+type sandboxAdapter struct{ r *Registry }
+
+func (a *sandboxAdapter) Run(ctx context.Context, name string, code string) (*sandbox.SandboxResult, error) {
+	return a.r.sandboxes.Run(ctx, name, code)
+}
+
+func (a *sandboxAdapter) GetOrCreateVM(name string, cfg sandbox.VMConfig) (sandbox.SandboxVM, error) {
+	return a.r.sandboxes.GetOrCreateVM(name, cfg)
+}
+
+func (a *sandboxAdapter) CallTool(ctx context.Context, name string, args map[string]any) (map[string]any, error) {
+	t, err := Get[tool.Tool](ctx, a.r, name)
+	if err != nil {
+		return nil, err
+	}
+	ft, ok := t.(toolinternal.FunctionTool)
+	if !ok {
+		return nil, fmt.Errorf("tool %q is not callable", name)
+	}
+	tCtx := toolinternal.NewToolContext(a.r, "", nil)
+	return ft.Run(tCtx, args)
 }
 
 func loadAgent(ctx context.Context, r *Registry, name string) (any, error) {
@@ -196,4 +263,17 @@ type toolAdapter struct{ r *Registry }
 
 func (a *toolAdapter) GetMultiple(ctx context.Context, names []string) ([]tool.Tool, error) {
 	return a.r.GetTools(ctx, names)
+}
+
+func (a *toolAdapter) CallTool(ctx context.Context, name string, args map[string]any) (map[string]any, error) {
+	t, err := Get[tool.Tool](ctx, a.r, name)
+	if err != nil {
+		return nil, err
+	}
+	ft, ok := t.(toolinternal.FunctionTool)
+	if !ok {
+		return nil, fmt.Errorf("tool %q is not callable", name)
+	}
+	tCtx := toolinternal.NewToolContext(a.r, "", nil)
+	return ft.Run(tCtx, args)
 }
