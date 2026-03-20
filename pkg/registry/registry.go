@@ -10,7 +10,7 @@ import (
 
 	"github.com/innomon/agentic/pkg/sandbox"
 	"google.golang.org/adk/agent"
-	"google.golang.org/adk/internal/toolinternal"
+	"google.golang.org/adk/memory"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
@@ -217,11 +217,11 @@ func (a *sandboxAdapter) CallTool(ctx context.Context, name string, args map[str
 	if err != nil {
 		return nil, err
 	}
-	ft, ok := t.(toolinternal.FunctionTool)
+	ft, ok := t.(functionTool)
 	if !ok {
 		return nil, fmt.Errorf("tool %q is not callable", name)
 	}
-	tCtx := toolinternal.NewToolContext(a.r, "", nil)
+	tCtx := dummyToolContext{Context: a.r.ctx}
 	return ft.Run(tCtx, args)
 }
 
@@ -265,15 +265,49 @@ func (a *toolAdapter) GetMultiple(ctx context.Context, names []string) ([]tool.T
 	return a.r.GetTools(ctx, names)
 }
 
+func (a *toolAdapter) GetTools(ctx context.Context, names []string) ([]tool.Tool, error) {
+	return a.r.GetTools(ctx, names)
+}
+
 func (a *toolAdapter) CallTool(ctx context.Context, name string, args map[string]any) (map[string]any, error) {
 	t, err := Get[tool.Tool](ctx, a.r, name)
 	if err != nil {
 		return nil, err
 	}
-	ft, ok := t.(toolinternal.FunctionTool)
+	ft, ok := t.(functionTool)
 	if !ok {
 		return nil, fmt.Errorf("tool %q is not callable", name)
 	}
-	tCtx := toolinternal.NewToolContext(a.r, "", nil)
+	tCtx := dummyToolContext{Context: a.r.ctx}
 	return ft.Run(tCtx, args)
+}
+
+// functionTool defines the interface we expect from ADK tools to execute them.
+// This is a copy of google.golang.org/adk/internal/toolinternal.FunctionTool
+// to avoid importing an internal package.
+type functionTool interface {
+	tool.Tool
+	Declaration() *genai.FunctionDeclaration
+	Run(ctx tool.Context, args any) (result map[string]any, err error)
+}
+
+// dummyToolContext provides a minimal tool.Context for tools called from sandboxes/registry.
+type dummyToolContext struct {
+	context.Context
+}
+
+func (c dummyToolContext) UserContent() *genai.Content        { return nil }
+func (c dummyToolContext) InvocationID() string               { return "sandbox-root" }
+func (c dummyToolContext) AgentName() string                  { return "sandbox-agent" }
+func (c dummyToolContext) ReadonlyState() session.ReadonlyState { return nil }
+func (c dummyToolContext) UserID() string                     { return "sandbox-user" }
+func (c dummyToolContext) AppName() string                    { return "sandbox-app" }
+func (c dummyToolContext) SessionID() string                  { return "sandbox-session" }
+func (c dummyToolContext) Branch() string                     { return "root" }
+func (c dummyToolContext) Artifacts() agent.Artifacts         { return nil }
+func (c dummyToolContext) State() session.State               { return nil }
+func (c dummyToolContext) FunctionCallID() string             { return "sandbox-call" }
+func (c dummyToolContext) Actions() *session.EventActions     { return nil }
+func (c dummyToolContext) SearchMemory(ctx context.Context, query string) (*memory.SearchResponse, error) {
+	return nil, fmt.Errorf("memory search not available in sandbox tool calls")
 }

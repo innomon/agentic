@@ -89,7 +89,7 @@ func toStringSlice(v any) ([]string, error) {
 	return out, nil
 }
 
-func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig) (tool.Tool, error) {
+func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ registry.SandboxRegistry) (tool.Tool, error) {
 	db, err := getOrOpenUserDB(cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("userdb tool %q: %w", name, err)

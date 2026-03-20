@@ -70,7 +70,7 @@ func loadWasmBytes(ctx context.Context, cfg *WasmToolConfig) ([]byte, error) {
 	return data, nil
 }
 
-func wasmToolCreator(ctx context.Context, name string, cfg *WasmToolConfig) (tool.Tool, error) {
+func wasmToolCreator(ctx context.Context, name string, cfg *WasmToolConfig, _ registry.SandboxRegistry) (tool.Tool, error) {
 	wasmBytes, err := loadWasmBytes(ctx, cfg)
 	if err != nil {
 		return nil, err

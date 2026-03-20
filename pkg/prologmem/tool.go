@@ -42,7 +42,7 @@ func getOrCreateEngine(kbPath string, timeout time.Duration) (*PrologMemory, err
 	return pm, nil
 }
 
-func logicQueryToolCreator(_ context.Context, name string, cfg *LogicQueryToolConfig) (tool.Tool, error) {
+func logicQueryToolCreator(_ context.Context, name string, cfg *LogicQueryToolConfig, _ registry.SandboxRegistry) (tool.Tool, error) {
 	timeout := DefaultTimeout
 	if cfg.TimeoutSeconds > 0 {
 		timeout = time.Duration(cfg.TimeoutSeconds) * time.Second

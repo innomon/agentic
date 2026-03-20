@@ -311,7 +311,7 @@ func TestGetTools(t *testing.T) {
 		},
 	}
 	reg := New(cfg)
-	RegisterToolType(typeName, func(ctx context.Context, name string, cfg *testToolConfig) (tool.Tool, error) {
+	RegisterToolType(typeName, func(ctx context.Context, name string, cfg *testToolConfig, _ SandboxRegistry) (tool.Tool, error) {
 		return &mockTool{name: name}, nil
 	})
 
@@ -518,7 +518,7 @@ func TestCreateModel_UnknownProvider(t *testing.T) {
 }
 
 func TestCreateTool_UnknownType(t *testing.T) {
-	_, err := createTool(context.Background(), "nonexistent-type", "t", nil)
+	_, err := createTool(context.Background(), "nonexistent-type", "t", nil, nil)
 	if err == nil {
 		t.Fatal("expected error for unknown tool type")
 	}
@@ -803,7 +803,7 @@ func TestToolHandler_Missing(t *testing.T) {
 
 func TestGeminiToolCreator_UnknownBuiltin(t *testing.T) {
 	cfg := &GeminiToolConfig{Tool: "nonexistent-gemini-tool"}
-	_, err := geminiToolCreator(context.Background(), "t", cfg)
+	_, err := geminiToolCreator(context.Background(), "t", cfg, nil)
 	if err == nil || !strings.Contains(err.Error(), "unknown gemini built-in tool") {
 		t.Errorf("expected unknown gemini tool error, got: %v", err)
 	}
@@ -811,7 +811,7 @@ func TestGeminiToolCreator_UnknownBuiltin(t *testing.T) {
 
 func TestGeminiToolCreator_GoogleSearch(t *testing.T) {
 	cfg := &GeminiToolConfig{Tool: "google_search"}
-	tool, err := geminiToolCreator(context.Background(), "gs", cfg)
+	tool, err := geminiToolCreator(context.Background(), "gs", cfg, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -822,7 +822,7 @@ func TestGeminiToolCreator_GoogleSearch(t *testing.T) {
 
 func TestGeminiToolCreator_NameFallback(t *testing.T) {
 	cfg := &GeminiToolConfig{Tool: ""}
-	_, err := geminiToolCreator(context.Background(), "google_search", cfg)
+	_, err := geminiToolCreator(context.Background(), "google_search", cfg, nil)
 	if err != nil {
 		t.Fatalf("should fall back to name 'google_search': %v", err)
 	}
@@ -1103,7 +1103,7 @@ func TestToolAdapter(t *testing.T) {
 		},
 	}
 	reg := New(cfg)
-	RegisterToolType(typeName, func(ctx context.Context, name string, cfg *testToolConfig) (tool.Tool, error) {
+	RegisterToolType(typeName, func(ctx context.Context, name string, cfg *testToolConfig, _ SandboxRegistry) (tool.Tool, error) {
 		return &mockTool{name: name}, nil
 	})
 
