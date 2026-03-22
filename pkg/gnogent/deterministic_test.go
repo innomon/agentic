@@ -50,6 +50,14 @@ func (m *mockInvocationContext) UserContent() *genai.Content    { return m.userC
 func (m *mockInvocationContext) RunConfig() *agent.RunConfig    { return nil }
 func (m *mockInvocationContext) EndInvocation()                 {}
 func (m *mockInvocationContext) Ended() bool                    { return false }
+func (m *mockInvocationContext) WithContext(ctx context.Context) agent.InvocationContext {
+	return &mockInvocationContext{
+		Context:     ctx,
+		userContent: m.userContent,
+		sess:        m.sess,
+		ag:          m.ag,
+	}
+}
 
 
 func setupTestDB(t *testing.T) *gorm.DB {

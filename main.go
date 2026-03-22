@@ -17,6 +17,7 @@ import (
 	_ "github.com/innomon/agentic/pkg/routing"
 	_ "github.com/innomon/agentic/pkg/wasm"
 
+	"github.com/a2aproject/a2a-go/a2asrv"
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"
 	"google.golang.org/adk/cmd/launcher/web/api"
@@ -63,7 +64,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to create JWT verifier: %v", err)
 		}
-		launcherConfig.Middleware = verifier.MiddlewareMux
+		launcherConfig.A2AOptions = append(launcherConfig.A2AOptions, a2asrv.WithCallInterceptor(&auth.JWTInterceptor{Verifier: verifier}))
 		log.Printf("JWT authentication enabled (issuer=%s, audience=%s)", jwt.Issuer, jwt.Audience)
 	}
 

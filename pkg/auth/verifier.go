@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/a2aproject/a2a-go/a2asrv"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -87,7 +88,12 @@ func (v *JWTVerifier) Verify(tokenStr string) (*Claims, error) {
 }
 
 func isLocalhost(r *http.Request) bool {
-	host := r.Host
+	var host string
+	if r != nil {
+		host = r.Host
+	} else {
+		return true // Assume localhost if no request (A2A local calls)
+	}
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
@@ -131,4 +137,38 @@ func (v *JWTVerifier) MiddlewareMux(next http.Handler) http.Handler {
 func ClaimsFromContext(ctx context.Context) *Claims {
 	claims, _ := ctx.Value(claimsContextKey{}).(*Claims)
 	return claims
+}
+
+type JWTInterceptor struct {
+	Verifier *JWTVerifier
+}
+
+func (i *JWTInterceptor) Before(ctx context.Context, callCtx *a2asrv.CallContext, req *a2asrv.Request) (context.Context, error) {
+	if os.Getenv("BYPASS_AUTH") == "true" {
+		callCtx.User = &a2asrv.AuthenticatedUser{
+			UserName: "local-dev",
+		}
+		return ctx, nil
+	}
+
+	authHeader, ok := callCtx.RequestMeta().Get("Authorization")
+	if !ok || len(authHeader) == 0 || !strings.HasPrefix(authHeader[0], "Bearer ") {
+		return ctx, fmt.Errorf("missing or invalid Authorization header")
+	}
+
+	tokenStr := strings.TrimPrefix(authHeader[0], "Bearer ")
+	claims, err := i.Verifier.Verify(tokenStr)
+	if err != nil {
+		return ctx, err
+	}
+
+	callCtx.User = &a2asrv.AuthenticatedUser{
+		UserName: claims.UserID,
+	}
+
+	return context.WithValue(ctx, claimsContextKey{}, claims), nil
+}
+
+func (i *JWTInterceptor) After(ctx context.Context, callCtx *a2asrv.CallContext, resp *a2asrv.Response) error {
+	return nil
 }

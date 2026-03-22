@@ -14,6 +14,7 @@ import (
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
+	"google.golang.org/adk/tool/toolconfirmation"
 	"google.golang.org/genai"
 )
 
@@ -93,6 +94,17 @@ func (r *Registry) UserContent() *genai.Content { return nil }
 func (r *Registry) RunConfig() *agent.RunConfig { return nil }
 func (r *Registry) EndInvocation()              {}
 func (r *Registry) Ended() bool                 { return false }
+func (r *Registry) WithContext(ctx context.Context) agent.InvocationContext {
+	return &Registry{
+		cfg:       r.cfg,
+		items:     r.items,
+		loaders:   r.loaders,
+		building:  r.building,
+		closers:   r.closers,
+		sandboxes: r.sandboxes,
+		ctx:       ctx,
+	}
+}
 
 func typeOf[T any]() reflect.Type {
 	return reflect.TypeOf((*T)(nil)).Elem()
@@ -310,4 +322,16 @@ func (c dummyToolContext) FunctionCallID() string             { return "sandbox-
 func (c dummyToolContext) Actions() *session.EventActions     { return nil }
 func (c dummyToolContext) SearchMemory(ctx context.Context, query string) (*memory.SearchResponse, error) {
 	return nil, fmt.Errorf("memory search not available in sandbox tool calls")
+}
+
+func (c dummyToolContext) RequestConfirmation(prompt string, metadata any) error {
+	return fmt.Errorf("confirmation not supported in sandbox tool calls")
+}
+
+func (c dummyToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation {
+	return nil
+}
+
+func (c dummyToolContext) WithContext(ctx context.Context) tool.Context {
+	return dummyToolContext{Context: ctx}
 }
