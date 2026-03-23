@@ -338,7 +338,7 @@ agents:
       auto_migrate: true
     gnovm:
       source_file: ./gno/agent.gno
-      pkg_path: gno/agent
+      pkg_path: gno.land/p/agent
 ```
 
 ## Wasm Tools

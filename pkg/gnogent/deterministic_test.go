@@ -74,7 +74,17 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func setupTestVM(t *testing.T) *gnovm.GnoMachineWrapper {
 	t.Helper()
-	vm, err := gnovm.NewGnoMachineWrapper("gno/agent", "package agent")
+	src := `package agent
+var history []string
+type Pers struct { Friendship int }
+var self = Pers{Friendship: 10}
+type Mood struct { Vibe string }
+var currentMood = Mood{Vibe: "Neutral"}
+func SyncState(input string, now int64) {}
+func AddTurn(userIn, agentOut string) {}
+func GetSystemContext() string { return "test context" }
+`
+	vm, err := gnovm.NewGnoMachineWrapper("gno.land/p/agent", src)
 	if err != nil {
 		t.Fatalf("failed to create GnoVM: %v", err)
 	}
@@ -176,9 +186,15 @@ func TestDeterministicRun_RestoresState(t *testing.T) {
 	db := setupTestDB(t)
 	vm := setupTestVM(t)
 
+	// Create a valid initial state
+	validState, err := vm.ExportState()
+	if err != nil {
+		t.Fatalf("failed to export initial state: %v", err)
+	}
+
 	db.Create(&storage.AgentSession{
 		UserID:          "user1",
-		VMState:         []byte("snapshot"),
+		VMState:         validState,
 		FriendshipScore: 50,
 		MoodTag:         "Happy",
 	})

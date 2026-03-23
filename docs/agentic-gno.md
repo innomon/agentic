@@ -130,50 +130,90 @@ While GnoVM automatically persists state when running on a blockchain, in a **st
 
 ### **1. The Gno Machine Wrapper Implementation**
 
-This wrapper manages the life cycle of the GnoVM. It uses Gno's internal `Amino` or `GOB` encoding (depending on your Gno version) to snapshot the memory.
+This wrapper manages the life cycle of the GnoVM. It uses `MemDB` to back the Gno `Store`, allowing for manual snapshotting of the entire key-value state using Amino.
 
 ```go
 package gnovm
 
 import (
-    "github.com/gnolang/gno/gno.land/pkg/gnovm"
-    "github.com/gnolang/gno/gno.land/pkg/gnofmt"
+	"fmt"
+
+	"github.com/gnolang/gno/gnovm/pkg/gnolang"
+	"github.com/gnolang/gno/tm2/pkg/amino"
+	"github.com/gnolang/gno/tm2/pkg/db"
+	"github.com/gnolang/gno/tm2/pkg/db/memdb"
+	"github.com/gnolang/gno/tm2/pkg/std"
+	"github.com/gnolang/gno/tm2/pkg/store/dbadapter"
 )
 
 type GnoMachineWrapper struct {
-    Machine *gnovm.Machine
-    Store   gnovm.Store // The underlying memory store
+	Machine *gnolang.Machine
+	Store   gnolang.Store
+	DB      db.DB
+	PkgPath string
 }
 
-// NewGnoMachine initializes a fresh VM for a new agent session
-func NewGnoMachine(packagePath string, sourceCode string) (*GnoMachineWrapper, error) {
-    machine := gnovm.NewMachine()
-    // 1. Parse and add the agent's logic
-    pkg := machine.MustParsePackage(packagePath, "agent.gno", sourceCode)
-    machine.Preprocess(pkg)
-    
-    return &GnoMachineWrapper{
-        Machine: machine,
-        Store:   machine.Store(),
-    }, nil
+// NewGnoMachineWrapper initializes a fresh VM for a new agent session
+func NewGnoMachineWrapper(pkgPath, src string) (*GnoMachineWrapper, error) {
+	memDB := memdb.NewMemDB()
+	baseStore := dbadapter.Store{DB: memDB}
+
+	alloc := gnolang.NewAllocator(0)
+	store := gnolang.NewStore(alloc, baseStore, baseStore)
+	m := gnolang.NewMachine(pkgPath, store)
+
+	mpkg := &std.MemPackage{
+		Name: "agent",
+		Path: pkgPath,
+		Type: gnolang.MPUserProd,
+		Files: []*std.MemFile{
+			{Name: "agent.gno", Body: src},
+		},
+	}
+	_, pv := m.RunMemPackage(mpkg, true)
+	m.SetActivePackage(pv)
+
+	return &GnoMachineWrapper{
+		Machine: m,
+		Store:   m.Store,
+		DB:      memDB,
+		PkgPath: pkgPath,
+	}, nil
 }
 
-// ExportState snapshots the entire VM memory heap
+type dbEntry struct {
+	K []byte
+	V []byte
+}
+
+// ExportState snapshots the entire VM memory heap via the underlying MemDB
 func (w *GnoMachineWrapper) ExportState() ([]byte, error) {
-    // In GnoVM standalone, we serialize the Store.
-    // The Store contains all global variables, mappings, and heap objects.
-    return w.Store.Export() 
+	it, err := w.DB.Iterator(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer it.Close()
+
+	var entries []dbEntry
+	for ; it.Valid(); it.Next() {
+		entries = append(entries, dbEntry{K: it.Key(), V: it.Value()})
+	}
+	return amino.Marshal(entries)
 }
 
 // RestoreState re-animates the machine from a DB blob
-func (w *GnoMachineWrapper) RestoreState(blob []byte) error {
-    newStore, err := gnovm.ImportStore(blob)
-    if err != nil {
-        return err
-    }
-    w.Store = newStore
-    w.Machine.SetStore(newStore)
-    return nil
+func (w *GnoMachineWrapper) RestoreState(b []byte) error {
+	var entries []dbEntry
+	if err := amino.Unmarshal(b, &entries); err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if err := w.DB.Set(e.K, e.V); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 ```
@@ -374,7 +414,7 @@ agent:
   temperature: 0.7
 
 gnovm:
-  package_path: "gno/agent"
+  package_path: "gno.land/p/agent"
   source_file: "./gno/agent.gno"
   max_history_turns: 20  # Configurable pruning limit
 
@@ -435,7 +475,7 @@ func main() {
 
 	// 3. Initialize GnoVM Machine Wrapper
 	gnoSource, _ := os.ReadFile(cfg.GnoVM.SourceFile)
-	vmWrapper, _ := gnovm.NewGnoMachineWrapper("gno/agent", string(gnoSource))
+	vmWrapper, _ := gnovm.NewGnoMachineWrapper("gno.land/p/agent", string(gnoSource))
 
 	// 4. Create the ADK Agent
 	// Note: In production, the model is initialized via your provider (Gemini/Vertex)

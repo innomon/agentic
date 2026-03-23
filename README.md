@@ -293,7 +293,7 @@ agents:
       auto_migrate: true
     gnovm:
       source_file: ./gno/agent.gno
-      pkg_path: gno/agent
+      pkg_path: gno.land/p/agent
 ```
 
 | Field | Description | Required |
@@ -301,7 +301,7 @@ agents:
 | `database.dsn` | PostgreSQL connection string | Yes |
 | `database.auto_migrate` | Auto-create schema on startup | No |
 | `gnovm.source_file` | Path to `.gno` source file | Yes |
-| `gnovm.pkg_path` | GnoVM package path (default: `gno/agent`) | No |
+| `gnovm.pkg_path` | GnoVM package path (default: `gno.land/p/agent`) | No |
 
 Each turn executes: thaw (restore VM state from DB) → SyncState (evolve mood/personality) → GetSystemContext (produce response) → AddTurn (archive conversation) → freeze (persist VM state to DB).
 

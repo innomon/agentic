@@ -53,7 +53,7 @@ func deterministicGnogentCreator(ctx context.Context, name string, cfg *Determin
 
 	pkgPath := cfg.GnoVM.PkgPath
 	if pkgPath == "" {
-		pkgPath = "gno/agent"
+		pkgPath = "gno.land/p/agent"
 	}
 
 	gnoSource, err := os.ReadFile(cfg.GnoVM.SourceFile)
