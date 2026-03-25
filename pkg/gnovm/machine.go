@@ -29,7 +29,7 @@ type MachineWrapper struct {
 // NewMachineWrapper creates a new Gno machine wrapper.
 func NewMachineWrapper(opts MachineOptions) (*MachineWrapper, error) {
 	if opts.PkgPath == "" {
-		opts.PkgPath = "gno.land/p/agent"
+		opts.PkgPath = "agentic/r/agent"
 	}
 
 	baseDB := opts.Store
@@ -117,7 +117,7 @@ func (w *MachineWrapper) Eval(expr string) ([]gnolang.TypedValue, error) {
 
 // Run executes a package main function.
 func (w *MachineWrapper) Run() error {
-	// Gno doesn't have a simple 'Run' for the whole machine, 
+	// Gno doesn't have a simple 'Run' for the whole machine,
 	// but we can evaluate 'main()' if it exists.
 	_, err := w.Eval("main()")
 	return err
