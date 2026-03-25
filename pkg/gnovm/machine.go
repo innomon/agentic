@@ -1,6 +1,8 @@
 package gnovm
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gnolang/gno/gnovm/pkg/gnolang"
@@ -9,7 +11,57 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/db/memdb"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/gno/tm2/pkg/store/dbadapter"
+	"google.golang.org/adk/agent"
+	"google.golang.org/adk/memory"
+	"google.golang.org/adk/session"
+	"google.golang.org/adk/tool"
+	"google.golang.org/adk/tool/toolconfirmation"
+	"google.golang.org/genai"
 )
+
+// AgentContext is passed to GnoVM as Context for agents.
+type AgentContext struct {
+	InvCtx    agent.InvocationContext
+	SubAgents []agent.Agent
+	Tools     []tool.Tool
+}
+
+// FunctionTool defines the interface we expect from ADK tools to execute them.
+type FunctionTool interface {
+	tool.Tool
+	Declaration() *genai.FunctionDeclaration
+	Run(ctx tool.Context, args any) (result map[string]any, err error)
+}
+
+// DummyToolContext provides a minimal tool.Context for tools called from GnoVM.
+type DummyToolContext struct {
+	context.Context
+}
+
+func (c DummyToolContext) UserContent() *genai.Content               { return nil }
+func (c DummyToolContext) InvocationID() string                      { return "gnovm-call" }
+func (c DummyToolContext) AgentName() string                         { return "gnovm-agent" }
+func (c DummyToolContext) ReadonlyState() session.ReadonlyState      { return nil }
+func (c DummyToolContext) UserID() string                            { return "gnovm-user" }
+func (c DummyToolContext) AppName() string                           { return "gnovm-app" }
+func (c DummyToolContext) SessionID() string                         { return "gnovm-session" }
+func (c DummyToolContext) Branch() string                            { return "root" }
+func (c DummyToolContext) Artifacts() agent.Artifacts                { return nil }
+func (c DummyToolContext) State() session.State                      { return nil }
+func (c DummyToolContext) FunctionCallID() string                    { return "gnovm-call" }
+func (c DummyToolContext) Actions() *session.EventActions            { return nil }
+func (c DummyToolContext) SearchMemory(ctx context.Context, query string) (*memory.SearchResponse, error) {
+	return nil, fmt.Errorf("memory search not available in gnovm tool calls")
+}
+func (c DummyToolContext) RequestConfirmation(prompt string, metadata any) error {
+	return fmt.Errorf("confirmation not supported in gnovm tool calls")
+}
+func (c DummyToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation {
+	return nil
+}
+func (c DummyToolContext) WithContext(ctx context.Context) tool.Context {
+	return DummyToolContext{Context: ctx}
+}
 
 // NativePkg represents a native package to be injected into the GnoVM.
 type NativePkg struct {
@@ -18,12 +70,28 @@ type NativePkg struct {
 	Funcs map[string]func(m *gnolang.Machine)
 }
 
+var (
+	sandboxNativePkgs []*NativePkg
+	agentNativePkgs   []*NativePkg
+)
+
+// RegisterSandboxNativePkg registers a native package for all Gno sandboxes.
+func RegisterSandboxNativePkg(pkg *NativePkg) {
+	sandboxNativePkgs = append(sandboxNativePkgs, pkg)
+}
+
+// RegisterAgentNativePkg registers a native package for all Gno agents.
+func RegisterAgentNativePkg(pkg *NativePkg) {
+	agentNativePkgs = append(agentNativePkgs, pkg)
+}
+
 // MachineOptions contains parameters for Gno machine creation.
 type MachineOptions struct {
 	PkgPath    string
 	Store      db.DB
 	Source     map[string]string // File name -> content
 	NativePkgs []*NativePkg
+	Context    any
 }
 
 // MachineWrapper wraps a Gno machine and provides high-level operations.
@@ -65,6 +133,7 @@ func NewMachineWrapper(opts MachineOptions) (*MachineWrapper, error) {
 	}
 
 	m := gnolang.NewMachine(opts.PkgPath, store)
+	m.Context = opts.Context
 
 	if len(opts.Source) > 0 {
 		pkgName := "main"

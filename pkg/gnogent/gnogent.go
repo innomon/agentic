@@ -12,6 +12,7 @@ import (
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/session"
+	"google.golang.org/adk/tool"
 	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -27,6 +28,7 @@ type GnoAgentConfig struct {
 		SourceFile string `yaml:"source_file"`
 		PkgPath    string `yaml:"pkg_path"`
 	} `yaml:"gnovm"`
+	Tools []string `yaml:"tools"`
 }
 
 func (c *GnoAgentConfig) Validate() error {
@@ -39,7 +41,7 @@ func (c *GnoAgentConfig) Validate() error {
 	return nil
 }
 
-func gnoAgentCreator(ctx context.Context, name string, cfg *GnoAgentConfig, _ registry.ModelRegistry, _ registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+func gnoAgentCreator(ctx context.Context, name string, cfg *GnoAgentConfig, _ registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	db, err := gorm.Open(postgres.Open(cfg.Database.DSN), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("gnoagent %q: postgres connection failed: %w", name, err)
@@ -65,11 +67,19 @@ func gnoAgentCreator(ctx context.Context, name string, cfg *GnoAgentConfig, _ re
 		return nil, fmt.Errorf("gnoagent %q: GnoVM failed to boot: %w", name, err)
 	}
 
+	var toolList []tool.Tool
+	if len(cfg.Tools) > 0 && tools != nil {
+		toolList, err = tools.GetMultiple(ctx, cfg.Tools)
+		if err != nil {
+			return nil, fmt.Errorf("gnoagent %q: failed to get tools: %w", name, err)
+		}
+	}
+
 	return agent.New(agent.Config{
 		Name:        name,
 		Description: cfg.Description,
 		SubAgents:   sub,
-		Run:         newGnoRun(db, vmWrapper),
+		Run:         newGnoRun(db, vmWrapper, sub, toolList),
 	})
 }
 
@@ -85,7 +95,7 @@ func extractUserText(content *genai.Content) string {
 	return ""
 }
 
-func newGnoRun(db *gorm.DB, vm *gnovm.AgentWrapper) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
+func newGnoRun(db *gorm.DB, vm *gnovm.AgentWrapper, sub []agent.Agent, tools []tool.Tool) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
 	return func(invCtx agent.InvocationContext) iter.Seq2[*session.Event, error] {
 		return func(yield func(*session.Event, error) bool) {
 			userInput := extractUserText(invCtx.UserContent())
@@ -95,6 +105,11 @@ func newGnoRun(db *gorm.DB, vm *gnovm.AgentWrapper) func(agent.InvocationContext
 			}
 
 			userID := invCtx.Session().UserID()
+			vm.Machine.Context = &gnovm.AgentContext{
+				InvCtx:    invCtx,
+				SubAgents: sub,
+				Tools:     tools,
+			}
 
 			// 1. Thaw: Restore GnoVM state from DB
 			var sess storage.AgentSession

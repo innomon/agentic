@@ -22,7 +22,9 @@ func (v *SandboxVM) Init(cfg sandbox.VMConfig, host *sandbox.HostContext) error 
 	v.host = host
 
 	wrapper, err := NewMachineWrapper(MachineOptions{
-		PkgPath: "agentic/e/sandbox",
+		PkgPath:    "agentic/e/sandbox",
+		NativePkgs: sandboxNativePkgs,
+		Context:    host,
 	})
 	if err != nil {
 		return err
