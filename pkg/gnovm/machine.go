@@ -1,8 +1,6 @@
 package gnovm
 
 import (
-	"fmt"
-
 	"github.com/gnolang/gno/gnovm/pkg/gnolang"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/db"
