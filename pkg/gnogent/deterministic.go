@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/innomon/agentic/pkg/gnogent/gnovm"
+	"github.com/innomon/agentic/pkg/gnovm"
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"github.com/innomon/agentic/pkg/registry"
 	"google.golang.org/adk/agent"
@@ -61,7 +61,7 @@ func deterministicGnogentCreator(ctx context.Context, name string, cfg *Determin
 		return nil, fmt.Errorf("deterministic-gnogent %q: gno source file not found: %w", name, err)
 	}
 
-	vmWrapper, err := gnovm.NewGnoMachineWrapper(pkgPath, string(gnoSource))
+	vmWrapper, err := gnovm.NewAgentWrapper(pkgPath, string(gnoSource))
 	if err != nil {
 		return nil, fmt.Errorf("deterministic-gnogent %q: GnoVM failed to boot: %w", name, err)
 	}
@@ -86,7 +86,7 @@ func extractUserText(content *genai.Content) string {
 	return ""
 }
 
-func newDeterministicRun(db *gorm.DB, vm *gnovm.GnoMachineWrapper) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
+func newDeterministicRun(db *gorm.DB, vm *gnovm.AgentWrapper) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
 	return func(invCtx agent.InvocationContext) iter.Seq2[*session.Event, error] {
 		return func(yield func(*session.Event, error) bool) {
 			userInput := extractUserText(invCtx.UserContent())

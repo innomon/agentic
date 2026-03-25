@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/innomon/agentic/pkg/gnogent/gnovm"
+	"github.com/innomon/agentic/pkg/gnovm"
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"github.com/innomon/agentic/pkg/registry"
 	"google.golang.org/adk/agent"
@@ -91,7 +91,7 @@ func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, m
 		return nil, fmt.Errorf("gnogent %q: gno source file not found: %w", name, err)
 	}
 
-	vmWrapper, err := gnovm.NewGnoMachineWrapper(pkgPath, string(gnoSource))
+	vmWrapper, err := gnovm.NewAgentWrapper(pkgPath, string(gnoSource))
 	if err != nil {
 		return nil, fmt.Errorf("gnogent %q: GnoVM failed to boot: %w", name, err)
 	}

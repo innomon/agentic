@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/innomon/agentic/pkg/gnogent/gnovm"
+	"github.com/innomon/agentic/pkg/gnovm"
 
 	"gorm.io/gorm"
 )
@@ -26,7 +26,7 @@ type SnapshotMetadata struct {
 
 type GormSessionService struct {
 	DB        *gorm.DB
-	VMWrapper *gnovm.GnoMachineWrapper
+	VMWrapper *gnovm.AgentWrapper
 }
 
 func (s *GormSessionService) GetSnapshotHistory(userID string) ([]SnapshotMetadata, error) {
