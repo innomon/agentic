@@ -124,21 +124,15 @@ func newDeterministicRun(db *gorm.DB, vm *gnovm.AgentWrapper) func(agent.Invocat
 				yield(nil, fmt.Errorf("deterministic-gnogent: freeze failure: %w", err))
 				return
 			}
-			friendship, _ := vm.Friendship()
-			mood, _ := vm.Mood()
 
 			var existing storage.AgentSession
 			if err := db.Where("user_id = ?", userID).First(&existing).Error; err == nil {
 				existing.VMState = blob
-				existing.FriendshipScore = friendship
-				existing.MoodTag = mood
 				db.Save(&existing)
 			} else {
 				db.Create(&storage.AgentSession{
-					UserID:          userID,
-					VMState:         blob,
-					FriendshipScore: friendship,
-					MoodTag:         mood,
+					UserID:  userID,
+					VMState: blob,
 				})
 			}
 

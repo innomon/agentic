@@ -14,12 +14,13 @@ Enhance Gnogent's capabilities (tools, memory, and security) without breaking th
 
 * **Determinism is King:** No side effects (HTTP calls, time.Now, random numbers) inside `gno/agent.gno`. All external data must be passed in via arguments.
 * **State Persistence:** Only package-level global variables are snapshotted. Do not use local function variables for data that must survive turn-to-turn.
-* **Logic Isolation:** Gno logic should strictly handle *reasoning and history management*. Use Go-ADK for *execution and I/O*.
+* **Logic Isolation:** Gno logic should strictly handle *reasoning and history management*. Internal personality traits (mood, friendship) must remain private to the Gno package and only be exposed to the outside as part of the `GetSystemContext()` string.
+* **Snapshot Integrity:** The Go wrapper treats the entire `VMState` as a binary blob. Do not attempt to extract internal Gno fields (like friendship score) into separate database columns.
 
 ### 2. The Go Wrapper (The "Body")
 
 * **Session Context:** Always extract `GnogentClaims` from the context before interacting with the database.
-* **Snapshot Integrity:** Ensure `VMState` is never modified outside the `BeforeSave` and `AfterFind` hooks.
+* **Opaque Persistence:** Ensure `VMState` is treated as an opaque snapshot. Logic should only interact with the VM via the defined exported functions (`SyncState`, `AddTurn`, `GetSystemContext`).
 
 ---
 

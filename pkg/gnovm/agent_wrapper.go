@@ -45,22 +45,3 @@ func (w *AgentWrapper) AddTurn(user, agent string) error {
 	_, err := w.Eval(expr)
 	return err
 }
-
-// Friendship retrieves the current friendship score.
-func (w *AgentWrapper) Friendship() (int, error) {
-	res, err := w.Eval("self.Friendship")
-	if err != nil || len(res) == 0 {
-		return 0, fmt.Errorf("Friendship eval failed: %v", err)
-	}
-	// Note: res[0].GetInt() might be needed instead of GetInt64 or conversion
-	return int(res[0].GetInt()), nil
-}
-
-// Mood retrieves the current mood vibe.
-func (w *AgentWrapper) Mood() (string, error) {
-	res, err := w.Eval("currentMood.Vibe")
-	if err != nil || len(res) == 0 {
-		return "", fmt.Errorf("Mood eval failed: %v", err)
-	}
-	return res[0].String(), nil
-}

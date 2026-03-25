@@ -76,19 +76,8 @@ Implement a custom session service that handles the "Freeze/Thaw" cycle of the G
 type AgentSession struct {
     gorm.Model
     SessionID string `gorm:"uniqueIndex"`
-    VMState   []byte `gorm:"type:bytea"` // The frozen GnoVM heap
+    VMState   []byte `gorm:"type:bytea"` // The frozen GnoVM heap (Brain Snapshot)
 }
-
-// BeforeSave Hook: Captures the live VM state before DB write
-func (s *AgentSession) BeforeSave(tx *gorm.DB) error {
-    if machine, ok := tx.Get("live_vm"); ok {
-        m := machine.(*gnovm.Machine)
-        state, _ := m.ExportState() // Binary snapshot
-        s.VMState = state
-    }
-    return nil
-}
-
 ```
 
 ---
@@ -97,11 +86,11 @@ func (s *AgentSession) BeforeSave(tx *gorm.DB) error {
 
 ### **The Execution Flow**
 
-1. **Thaw:** When a request arrives, the `SessionService` fetches the `VMState` bytes and calls `machine.RestoreState()`.
-2. **Reason:** The ADK Agent queries the GnoVM for the current conversation context via `machine.Eval("agent.GetContext()")`.
-3. **Act:** The LLM generates a response.
-4. **Update:** The Go code calls `machine.Eval("agent.AddInteraction(...)")` to update the VM's internal memory.
-5. **Freeze:** `db.Save()` triggers the GORM hook, which snapshots the VM and stores the new binary blob in Postgres.
+1. **Thaw:** When a request arrives, the `SessionService` fetches the `VMState` bytes and calls `machine.RestoreState()`. This restores all internal variables (mood, friendship, history).
+2. **Reason:** The ADK Agent queries the GnoVM for the current system instruction via `machine.Eval("agent.GetSystemContext()")`.
+3. **Act:** The LLM generates a response based on the context.
+4. **Update:** The Go code calls `machine.Eval("agent.AddTurn(...)")` to update the VM's internal memory.
+5. **Freeze:** `db.Save()` snapshots the entire VM memory back to the `VMState` field.
 
 ---
 

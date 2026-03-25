@@ -65,9 +65,7 @@ type BrainQueryArgs struct {
 }
 
 type BrainQueryResult struct {
-	Mood       string `json:"mood"`
-	Friendship int    `json:"friendship"`
-	Context    string `json:"context"`
+	Context string `json:"context"`
 }
 
 func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
@@ -126,13 +124,9 @@ func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, m
 			if err != nil {
 				return FreezeResult{}, fmt.Errorf("freeze failure: %v", err)
 			}
-			friendship, _ := vmWrapper.Friendship()
-			mood, _ := vmWrapper.Mood()
 			session := storage.AgentSession{
-				UserID:          args.UserID,
-				VMState:         blob,
-				FriendshipScore: friendship,
-				MoodTag:         mood,
+				UserID:  args.UserID,
+				VMState: blob,
 			}
 			db.Save(&session)
 			return FreezeResult{Status: "saved"}, nil
@@ -145,19 +139,15 @@ func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, m
 	brainTool, err := functiontool.New(
 		functiontool.Config{
 			Name:        "query_brain",
-			Description: "Query the GnoVM brain for the agent's current mood, friendship level, and system context.",
+			Description: "Query the GnoVM brain for the agent's current system context based on the query.",
 		},
 		func(ctx tool.Context, args BrainQueryArgs) (BrainQueryResult, error) {
 			if err := vmWrapper.SyncState(args.Query, 0); err != nil {
 				return BrainQueryResult{}, err
 			}
 			sysCtx, _ := vmWrapper.GetSystemContext()
-			friendship, _ := vmWrapper.Friendship()
-			mood, _ := vmWrapper.Mood()
 			return BrainQueryResult{
-				Mood:       mood,
-				Friendship: friendship,
-				Context:    sysCtx,
+				Context: sysCtx,
 			}, nil
 		},
 	)
