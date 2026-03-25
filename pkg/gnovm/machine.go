@@ -1,6 +1,8 @@
 package gnovm
 
 import (
+	"strings"
+
 	"github.com/gnolang/gno/gnovm/pkg/gnolang"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/db"
@@ -42,8 +44,13 @@ func NewMachineWrapper(opts MachineOptions) (*MachineWrapper, error) {
 	m := gnolang.NewMachine(opts.PkgPath, store)
 
 	if len(opts.Source) > 0 {
+		pkgName := "main"
+		if opts.PkgPath != "" {
+			parts := strings.Split(opts.PkgPath, "/")
+			pkgName = parts[len(parts)-1]
+		}
 		mpkg := &std.MemPackage{
-			Name:  "main", // Usually main for execution or package name
+			Name:  pkgName,
 			Path:  opts.PkgPath,
 			Type:  gnolang.MPUserProd,
 			Files: make([]*std.MemFile, 0, len(opts.Source)),

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/innomon/agentic/pkg/gnogent/gnovm"
+	"github.com/innomon/agentic/pkg/gnovm"
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/session"
@@ -72,7 +72,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func setupTestVM(t *testing.T) *gnovm.GnoMachineWrapper {
+func setupTestVM(t *testing.T) *gnovm.AgentWrapper {
 	t.Helper()
 	src := `package agent
 var history []string
@@ -84,7 +84,7 @@ func SyncState(input string, now int64) {}
 func AddTurn(userIn, agentOut string) {}
 func GetSystemContext() string { return "test context" }
 `
-	vm, err := gnovm.NewGnoMachineWrapper("gno.land/p/agent", src)
+	vm, err := gnovm.NewAgentWrapper("gno.land/p/agent", src)
 	if err != nil {
 		t.Fatalf("failed to create GnoVM: %v", err)
 	}
@@ -193,10 +193,8 @@ func TestDeterministicRun_RestoresState(t *testing.T) {
 	}
 
 	db.Create(&storage.AgentSession{
-		UserID:          "user1",
-		VMState:         validState,
-		FriendshipScore: 50,
-		MoodTag:         "Happy",
+		UserID:  "user1",
+		VMState: validState,
 	})
 
 	run := newDeterministicRun(db, vm)
