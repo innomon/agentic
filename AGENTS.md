@@ -292,7 +292,7 @@ Built-in types:
 - `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
 - `routing` - Role-based routing agent with user profile lookup and disambiguation
 - `wasm` - WebAssembly agent via wazero runtime with sub-agent host functions
-- `gnogent-deterministic` - Deterministic GnoVM agent via `agent.New()` (no LLM, state persisted to Postgres)
+- `gnogent` - Deterministic GnoVM agent via `agent.New()` (no LLM, state persisted to Postgres)
 
 Specify type in config:
 ```yaml
@@ -331,7 +331,7 @@ agents:
     sub_agents: [SubAgent1]
 
   MyDeterministicAgent:
-    type: gnogent-deterministic
+    type: gnogent
     description: "Stateful deterministic agent powered by GnoVM"
     database:
       dsn: postgres://user:pass@localhost/mydb

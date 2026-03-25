@@ -21,7 +21,7 @@ root_agent: Gnogent
 
 agents:
   Gnogent:
-    type: gnogent-deterministic
+    type: gnogent
     description: >
       Stateful personality agent powered by GnoVM. Tracks mood, friendship,
       and user preferences deterministically. Delegates to a conversational

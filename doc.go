@@ -64,7 +64,7 @@
 //     admin config override, and contextual disambiguation.
 //   - wasm                      — WebAssembly agent via wazero with sub-agent
 //     host functions.
-//   - gnogent-deterministic     — Deterministic GnoVM agent (no LLM, state
+//   - gnogent     — Deterministic GnoVM agent (no LLM, state
 //     persisted to Postgres).
 //   - gnogent                   — LLM-backed agent with GnoVM state management,
 //     freeze/thaw/brain_query tools.

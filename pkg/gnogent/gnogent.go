@@ -3,24 +3,22 @@ package gnogent
 import (
 	"context"
 	"fmt"
+	"iter"
 	"os"
 
 	"github.com/innomon/agentic/pkg/gnovm"
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"github.com/innomon/agentic/pkg/registry"
 	"google.golang.org/adk/agent"
-	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/model"
+	"google.golang.org/adk/session"
+	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type GnogentAgentConfig struct {
+type GnoAgentConfig struct {
 	registry.AgentBase `yaml:",inline"`
-	Model              string `yaml:"model"`
-	Instruction        string `yaml:"instruction"`
-	Tools              []string `yaml:"tools"`
 	Database           struct {
 		DSN         string `yaml:"dsn"`
 		AutoMigrate bool   `yaml:"auto_migrate"`
@@ -31,51 +29,24 @@ type GnogentAgentConfig struct {
 	} `yaml:"gnovm"`
 }
 
-func (c *GnogentAgentConfig) Validate() error {
-	if c.Model == "" {
-		return fmt.Errorf("model is required for gnogent agent")
-	}
+func (c *GnoAgentConfig) Validate() error {
 	if c.Database.DSN == "" {
-		return fmt.Errorf("database.dsn is required for gnogent agent")
+		return fmt.Errorf("database.dsn is required for gnoagent")
 	}
 	if c.GnoVM.SourceFile == "" {
-		return fmt.Errorf("gnovm.source_file is required for gnogent agent")
+		return fmt.Errorf("gnovm.source_file is required for gnoagent")
 	}
 	return nil
 }
 
-type ThawArgs struct {
-	UserID string `json:"user_id" jsonschema:"description=The user ID to restore state for"`
-}
-
-type ThawResult struct {
-	Status string `json:"status"`
-}
-
-type FreezeArgs struct {
-	UserID string `json:"user_id" jsonschema:"description=The user ID to persist state for"`
-}
-
-type FreezeResult struct {
-	Status string `json:"status"`
-}
-
-type BrainQueryArgs struct {
-	Query string `json:"query" jsonschema:"description=Expression to evaluate in the GnoVM brain"`
-}
-
-type BrainQueryResult struct {
-	Context string `json:"context"`
-}
-
-func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+func gnoAgentCreator(ctx context.Context, name string, cfg *GnoAgentConfig, _ registry.ModelRegistry, _ registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	db, err := gorm.Open(postgres.Open(cfg.Database.DSN), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: postgres connection failed: %w", name, err)
+		return nil, fmt.Errorf("gnoagent %q: postgres connection failed: %w", name, err)
 	}
 	if cfg.Database.AutoMigrate {
 		if err := db.AutoMigrate(&storage.AgentSession{}); err != nil {
-			return nil, fmt.Errorf("gnogent %q: migration failed: %w", name, err)
+			return nil, fmt.Errorf("gnoagent %q: migration failed: %w", name, err)
 		}
 	}
 
@@ -86,100 +57,99 @@ func gnogentCreator(ctx context.Context, name string, cfg *GnogentAgentConfig, m
 
 	gnoSource, err := os.ReadFile(cfg.GnoVM.SourceFile)
 	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: gno source file not found: %w", name, err)
+		return nil, fmt.Errorf("gnoagent %q: gno source file not found: %w", name, err)
 	}
 
 	vmWrapper, err := gnovm.NewAgentWrapper(pkgPath, string(gnoSource))
 	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: GnoVM failed to boot: %w", name, err)
+		return nil, fmt.Errorf("gnoagent %q: GnoVM failed to boot: %w", name, err)
 	}
 
-	thawTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "thaw_state",
-			Description: "Restore the GnoVM brain state for a user from Postgres.",
-		},
-		func(ctx tool.Context, args ThawArgs) (ThawResult, error) {
-			var session storage.AgentSession
-			if err := db.Where("user_id = ?", args.UserID).First(&session).Error; err != nil {
-				return ThawResult{Status: "new_session"}, nil
-			}
-			if err := vmWrapper.RestoreState(session.VMState); err != nil {
-				return ThawResult{}, fmt.Errorf("thaw failure: %v", err)
-			}
-			return ThawResult{Status: "restored"}, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: failed to create thaw tool: %w", name, err)
-	}
-
-	freezeTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "freeze_state",
-			Description: "Persist the current GnoVM brain state to Postgres for a user.",
-		},
-		func(ctx tool.Context, args FreezeArgs) (FreezeResult, error) {
-			blob, err := vmWrapper.ExportState()
-			if err != nil {
-				return FreezeResult{}, fmt.Errorf("freeze failure: %v", err)
-			}
-			session := storage.AgentSession{
-				UserID:  args.UserID,
-				VMState: blob,
-			}
-			db.Save(&session)
-			return FreezeResult{Status: "saved"}, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: failed to create freeze tool: %w", name, err)
-	}
-
-	brainTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "query_brain",
-			Description: "Query the GnoVM brain for the agent's current system context based on the query.",
-		},
-		func(ctx tool.Context, args BrainQueryArgs) (BrainQueryResult, error) {
-			if err := vmWrapper.SyncState(args.Query, 0); err != nil {
-				return BrainQueryResult{}, err
-			}
-			sysCtx, _ := vmWrapper.GetSystemContext()
-			return BrainQueryResult{
-				Context: sysCtx,
-			}, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: failed to create brain tool: %w", name, err)
-	}
-
-	m, err := models.Get(ctx, cfg.Model)
-	if err != nil {
-		return nil, fmt.Errorf("gnogent %q: failed to get model: %w", name, err)
-	}
-
-	gnogentTools := []tool.Tool{thawTool, freezeTool, brainTool}
-
-	if len(cfg.Tools) > 0 && tools != nil {
-		extra, err := tools.GetMultiple(ctx, cfg.Tools)
-		if err != nil {
-			return nil, fmt.Errorf("gnogent %q: failed to get tools: %w", name, err)
-		}
-		gnogentTools = append(gnogentTools, extra...)
-	}
-
-	return llmagent.New(llmagent.Config{
+	return agent.New(agent.Config{
 		Name:        name,
-		Model:       m,
 		Description: cfg.Description,
-		Instruction: cfg.Instruction,
-		Tools:       gnogentTools,
 		SubAgents:   sub,
+		Run:         newGnoRun(db, vmWrapper),
 	})
 }
 
+func extractUserText(content *genai.Content) string {
+	if content == nil {
+		return ""
+	}
+	for _, part := range content.Parts {
+		if part.Text != "" {
+			return part.Text
+		}
+	}
+	return ""
+}
+
+func newGnoRun(db *gorm.DB, vm *gnovm.AgentWrapper) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
+	return func(invCtx agent.InvocationContext) iter.Seq2[*session.Event, error] {
+		return func(yield func(*session.Event, error) bool) {
+			userInput := extractUserText(invCtx.UserContent())
+			if userInput == "" {
+				yield(nil, fmt.Errorf("gnoagent: empty user input"))
+				return
+			}
+
+			userID := invCtx.Session().UserID()
+
+			// 1. Thaw: Restore GnoVM state from DB
+			var sess storage.AgentSession
+			if err := db.Where("user_id = ?", userID).First(&sess).Error; err == nil {
+				if err := vm.RestoreState(sess.VMState); err != nil {
+					yield(nil, fmt.Errorf("gnoagent: thaw failure: %w", err))
+					return
+				}
+			}
+
+			// 2. Pulse: Set input variable and run main()
+			if err := vm.SetInput(userInput); err != nil {
+				yield(nil, fmt.Errorf("gnoagent: failed to set input: %w", err))
+				return
+			}
+
+			if err := vm.Run(); err != nil {
+				yield(nil, fmt.Errorf("gnoagent: execution error: %w", err))
+				return
+			}
+
+			// 3. Prompt: Get output variable from GnoVM
+			response, err := vm.GetOutput()
+			if err != nil {
+				yield(nil, fmt.Errorf("gnoagent: failed to get output: %w", err))
+				return
+			}
+
+			// 4. Freeze: Persist GnoVM state to DB
+			blob, err := vm.ExportState()
+			if err != nil {
+				yield(nil, fmt.Errorf("gnoagent: freeze failure: %w", err))
+				return
+			}
+
+			var existing storage.AgentSession
+			if err := db.Where("user_id = ?", userID).First(&existing).Error; err == nil {
+				existing.VMState = blob
+				db.Save(&existing)
+			} else {
+				db.Create(&storage.AgentSession{
+					UserID:  userID,
+					VMState: blob,
+				})
+			}
+
+			event := session.NewEvent(invCtx.InvocationID())
+			event.LLMResponse = model.LLMResponse{
+				Content: genai.NewContentFromText(response, genai.RoleModel),
+			}
+			yield(event, nil)
+		}
+	}
+}
+
 func init() {
-	registry.RegisterAgentType("gnogent", gnogentCreator)
+	registry.RegisterAgentType("gnogent", gnoAgentCreator)
 }

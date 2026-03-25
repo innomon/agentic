@@ -23,6 +23,22 @@ func NewAgentWrapper(pkgPath, src string) (*AgentWrapper, error) {
 	return &AgentWrapper{MachineWrapper: wrapper}, nil
 }
 
+// SetInput sets the input variable in the Gno package.
+func (w *AgentWrapper) SetInput(input string) error {
+	expr := fmt.Sprintf(`Input = %q`, input)
+	_, err := w.Eval(expr)
+	return err
+}
+
+// GetOutput retrieves the output variable from the Gno package.
+func (w *AgentWrapper) GetOutput() (string, error) {
+	res, err := w.Eval("Output")
+	if err != nil || len(res) == 0 {
+		return "", fmt.Errorf("GetOutput failed: %v", err)
+	}
+	return res[0].String(), nil
+}
+
 // SyncState updates the agent state with user input and current time.
 func (w *AgentWrapper) SyncState(userInput string, unixTime int64) error {
 	expr := fmt.Sprintf(`SyncState(%q, %d)`, userInput, unixTime)

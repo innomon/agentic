@@ -223,7 +223,7 @@ agents:
 | `loop` | Repeatedly executes sub-agents |
 | `routing` | Role-based user routing with disambiguation |
 | `wasm` | WebAssembly agent via wazero |
-| `gnogent-deterministic` | Deterministic GnoVM agent (no LLM) |
+| `gnogent` | Deterministic GnoVM agent (no LLM) |
 
 #### Workflow Examples
 
@@ -286,7 +286,7 @@ Runs agents entirely through GnoVM logic — no LLM required. User input is proc
 ```yaml
 agents:
   Gnogent:
-    type: gnogent-deterministic
+    type: gnogent
     description: Stateful deterministic agent powered by GnoVM
     database:
       dsn: postgres://user:pass@localhost/mydb

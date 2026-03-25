@@ -43,9 +43,26 @@ var (
 		Level: 0, 
 		Vibe: "Neutral",
 	}
+
+	// ADK integration variables
+	Input  string
+	Output string
 )
 
 // --- CORE LOGIC ---
+
+// main is the entry point for the agent logic.
+func main() {
+	// SyncState is called every turn to evolve the agent's internal world.
+	// We'll use the last known time or 0 if not available for simplicity in main()
+	SyncState(Input, currentMood.LastInput + 10) 
+	
+	// Get output
+	Output = GetSystemContext()
+	
+	// Record history
+	AddTurn(Input, Output)
+}
 
 // SyncState is called every turn to evolve the agent's internal world.
 func SyncState(input string, now int64) {
