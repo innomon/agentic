@@ -13,60 +13,79 @@ This project implements an AI agent where the **state logic** (conversation hist
 * **Brain (GnoVM):** A sandboxed execution environment for state transitions.
 * **Body (ADK Go-SDK):** Handles LLM orchestration, tools, and user I/O.
 * **Vault (Postgres + GORM):** Configurable object store for VM snapshots and semantic embeddings.
+* **Native Bridges:** Go-native packages injected into GnoVM to enable logging, sub-agent calls, and tool execution.
 
 ---
 
 ## 2. Infrastructure Setup
 
-### **Docker Environment**
+### **Agent Configuration**
 
-Use `pgvector` for Postgres to enable future semantic search capabilities.
+Gno agents (`gnogent`) are configured in `config.yaml` with their Gno source file and a list of permitted tools.
 
 ```yaml
-# docker-compose.yml
-services:
-  db:
-    image: pgvector/pgvector:pg17
-    ports: ["5432:5432"]
-    environment:
-      POSTGRES_DB: agent_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-
+type: gnogent
+name: "GnoDeterministicAgent"
+database:
+  dsn: "host=localhost user=dev_user password=dev_password dbname=agent_store port=5432 sslmode=disable"
+  auto_migrate: true
+tools:
+  - google_search
+  - calculator
+gnovm:
+  source_file: "./pkg/gnogent/gno/agent.gno"
+  pkg_path: "gno.land/p/agent"
 ```
 
 ---
 
 ## 3. The GnoVM "Brain" Logic
 
-Define your agent's state variables and logic in Gno. Because GnoVM is deterministic, this code replaces traditional "Session State" objects.
+Gno agents are now fully deterministic and utilize native packages for I/O and orchestration.
 
-**File: `gno/agent.gno**`
+**File: `pkg/gnogent/gno/agent.gno**`
 
 ```go
-package agent
+package main
 
-import "strings"
-
-var (
-    history []string
-    mood    = "professional"
+import (
+    "gno.land/p/agent"
+    "gno.land/p/log"
 )
 
-func AddInteraction(userMsg, aiMsg string) {
-    history = append(history, "User: " + userMsg)
-    history = append(history, "AI: " + aiMsg)
-}
+var (
+    Input  string
+    Output string
+    mood   = "professional"
+)
 
-func GetPromptContext() string {
-    return "Current Mood: " + mood + "\n" + strings.Join(history, "\n")
-}
+func main() {
+    log.Println("GnoVM logic pulse started.")
 
+    if Input == "call the expert" {
+        // Delegate to a sub-agent natively
+        Output = agent.CallSubAgent("ExpertAgent", "Explain the GnoVM injection mechanism.")
+    } else {
+        Output = "Current Mood: " + mood + "\nProcessing: " + Input
+    }
+}
 ```
 
 ---
 
-## 4. The Storage Layer (GORM)
+## 4. Native Packages Guide
+
+Native Go packages can be injected into GnoVM to provide capabilities not available in the deterministic Gno environment.
+
+### Available Agent Packages:
+- `gno.land/p/log`: Standard output logging from GnoVM.
+- `gno.land/p/agent`: Methods to call `CallSubAgent` and `CallTool`.
+
+For more details on how to implement custom native packages, see [docs/gnovm-native-packages.md](gnovm-native-packages.md).
+
+---
+
+## 5. The Storage Layer (GORM)
 
 Implement a custom session service that handles the "Freeze/Thaw" cycle of the GnoVM.
 

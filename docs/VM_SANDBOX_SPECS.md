@@ -92,12 +92,15 @@ tools:
 
 ## 6. Tool Integration
 
-The framework will provide a mechanism to "wrap" tools from the registry and expose them as native functions within each VM.
+The framework provides a mechanism to "wrap" tools and host functions from the registry and expose them as native functions within each VM.
 
+- **GnoVM**: Exposed as native Gno packages (e.g., `import "gno.land/p/log"`).
+    - **`gno.land/p/log`**: Provides `Println(msg string)` which directs output to the sandbox's `HostContext.Logger`.
 - **QuickJS**: Exposed as global JavaScript functions.
-- **GnoVM**: Exposed as Gno packages/functions.
 - **Starlark**: Exposed as Starlark built-ins.
 - **Prolog**: Exposed as Prolog predicates.
+
+For more details on GnoVM native package implementation, see [docs/gnovm-native-packages.md](gnovm-native-packages.md).
 
 ## 7. LLM Interface: `sandbox_run` Tool
 
