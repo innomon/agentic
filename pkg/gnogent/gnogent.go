@@ -60,7 +60,7 @@ func gnoAgentCreator(ctx context.Context, name string, cfg *GnoAgentConfig, _ re
 		return nil, fmt.Errorf("gnoagent %q: gno source file not found: %w", name, err)
 	}
 
-	vmWrapper, err := gnovm.NewAgentWrapper(pkgPath, string(gnoSource))
+	vmWrapper, err := gnovm.NewAgentWrapper(pkgPath, string(gnoSource), nil)
 	if err != nil {
 		return nil, fmt.Errorf("gnoagent %q: GnoVM failed to boot: %w", name, err)
 	}

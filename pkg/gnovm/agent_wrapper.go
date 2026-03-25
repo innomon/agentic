@@ -10,12 +10,13 @@ type AgentWrapper struct {
 }
 
 // NewAgentWrapper creates a new agent wrapper.
-func NewAgentWrapper(pkgPath, src string) (*AgentWrapper, error) {
+func NewAgentWrapper(pkgPath, src string, nativePkgs []*NativePkg) (*AgentWrapper, error) {
 	wrapper, err := NewMachineWrapper(MachineOptions{
 		PkgPath: pkgPath,
 		Source: map[string]string{
 			"agent.gno": src,
 		},
+		NativePkgs: nativePkgs,
 	})
 	if err != nil {
 		return nil, err

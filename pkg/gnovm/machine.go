@@ -11,11 +11,19 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/store/dbadapter"
 )
 
+// NativePkg represents a native package to be injected into the GnoVM.
+type NativePkg struct {
+	Name  string
+	Path  string
+	Funcs map[string]func(m *gnolang.Machine)
+}
+
 // MachineOptions contains parameters for Gno machine creation.
 type MachineOptions struct {
-	PkgPath string
-	Store   db.DB
-	Source  map[string]string // File name -> content
+	PkgPath    string
+	Store      db.DB
+	Source     map[string]string // File name -> content
+	NativePkgs []*NativePkg
 }
 
 // MachineWrapper wraps a Gno machine and provides high-level operations.
@@ -41,6 +49,21 @@ func NewMachineWrapper(opts MachineOptions) (*MachineWrapper, error) {
 
 	alloc := gnolang.NewAllocator(0)
 	store := gnolang.NewStore(alloc, baseStore, baseStore)
+
+	// Inject native packages
+	if len(opts.NativePkgs) > 0 {
+		store.SetNativeResolver(func(pkgPath string, name gnolang.Name) func(m *gnolang.Machine) {
+			for _, pkg := range opts.NativePkgs {
+				if pkg.Path == pkgPath {
+					if fn, ok := pkg.Funcs[string(name)]; ok {
+						return fn
+					}
+				}
+			}
+			return nil
+		})
+	}
+
 	m := gnolang.NewMachine(opts.PkgPath, store)
 
 	if len(opts.Source) > 0 {
