@@ -106,7 +106,7 @@ agentic/
 │   ├── prolog-memory/               # Logic-based Prolog knowledge example
 │   │   ├── config.yaml
 │   │   └── README.md
-│   └── gomlx/                   # Local embedded LLM example
+│   └── ml/                   # Local embedded LLM example
 │       ├── config.yaml
 │       └── README.md
 ├── pkg/
@@ -134,8 +134,8 @@ agentic/
 │   │   └── tools.go             # UserDB tool type (GORM user profiles)
 │   ├── userdb/
 │   │   └── userdb.go            # User profile database (GORM, JSONB)
-│   ├── gomlx/                   # Local embedded LLM (pure Go, GGUF)
-│   │   ├── config.go            # GoMLXConfig struct and validation
+│   ├── ml/                   # Local embedded LLM (pure Go, GGUF)
+│   │   ├── config.go            # MLConfig struct and validation
 │   │   ├── provider.go          # Model provider registration
 │   │   ├── model.go             # ADK model.LLM implementation
 │   │   ├── gguf.go              # GGUF file parser
@@ -549,8 +549,8 @@ if claims != nil {
 - `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
 - `OPENAI_API_KEY` - Required for OpenAI model access (if not set in config)
 - `BYPASS_AUTH` - Set to `true` to skip JWT verification for localhost requests (dev only)
-- `GOMLX_BACKEND` - Override GoMLX compute backend (default: CPU; `xla` reserved for future use)
-- `GOMLX_NO_AUTO_INSTALL` - Set to `true` to disable automatic XLA plugin download (future use)
+- `ML_BACKEND` - Override ML compute backend (default: CPU; `xla` reserved for future use)
+- `ML_NO_AUTO_INSTALL` - Set to `true` to disable automatic XLA plugin download (future use)
 
 ## Model Configuration
 
@@ -580,13 +580,13 @@ Required fields:
 - `model_id`: The model name as shown in `ollama list`
 - `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)
 
-### GoMLX Provider
+### ML Provider
 
-The `gomlx` provider runs GGUF-quantized models locally in pure Go — no external APIs, no GPU required. It embeds a GGUF loader and transformer inference engine directly into the binary.
+The `ml` provider runs GGUF-quantized models locally in pure Go — no external APIs, no GPU required. It embeds a GGUF loader and transformer inference engine directly into the binary.
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `provider` | Must be `gomlx` | Yes |
+| `provider` | Must be `ml` | Yes |
 | `model_id` | A logical name for the model (e.g., `smollm2-135m`) | Yes |
 | `model_path` | Path to the `.gguf` model file | Yes |
 | `context_length` | Max context window in tokens (default: from GGUF metadata) | No |
@@ -601,7 +601,7 @@ Minimal example:
 ```yaml
 models:
   local-llm:
-    provider: gomlx
+    provider: ml
     model_id: smollm2-135m
     model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
     default: true
@@ -612,7 +612,7 @@ Full example with all options:
 ```yaml
 models:
   local-llm:
-    provider: gomlx
+    provider: ml
     model_id: smollm2-135m
     model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
     default: true
@@ -627,10 +627,10 @@ Supported architectures:
 - **Granite** family (Granite 4.0 dense and hybrid models). Hybrid models mix attention layers with Mamba2 SSM layers for efficient long-context inference.
 
 Environment variables (for future XLA backend):
-- `GOMLX_BACKEND` — Override the compute backend (default: CPU)
-- `GOMLX_NO_AUTO_INSTALL` — Set to `true` to disable automatic XLA plugin download
+- `ML_BACKEND` — Override the compute backend (default: CPU)
+- `ML_NO_AUTO_INSTALL` — Set to `true` to disable automatic XLA plugin download
 
-**Limitations:** GoMLX runs inference in pure Go on the CPU. Best suited for small models up to ~3B parameters. For larger models, use the Gemini, OpenAI, or Ollama providers.
+**Limitations:** ML runs inference in pure Go on the CPU. Best suited for small models up to ~3B parameters. For larger models, use the Gemini, OpenAI, or Ollama providers.
 
 ## OpenClaw Gateway (clawgate)
 
