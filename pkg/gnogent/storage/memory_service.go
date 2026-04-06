@@ -55,7 +55,7 @@ func (s *GnogentMemoryService) AutoMigrate() error {
 
 
 
-func (s *GnogentMemoryService) AddSession(ctx context.Context, curSession session.Session) error {
+func (s *GnogentMemoryService) AddSessionToMemory(ctx context.Context, curSession session.Session) error {
 	appName := curSession.AppName()
 	userID := curSession.UserID()
 	sid := curSession.ID()
@@ -106,7 +106,7 @@ func (s *GnogentMemoryService) AddSession(ctx context.Context, curSession sessio
 	})
 }
 
-func (s *GnogentMemoryService) Search(ctx context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
+func (s *GnogentMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
 	var entries []gnogentMemoryEntry
 
 	if err := s.db.WithContext(ctx).

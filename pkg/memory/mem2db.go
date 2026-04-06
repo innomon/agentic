@@ -76,9 +76,9 @@ func (s *DatabaseMemoryService) AutoMigrate() error {
 	return s.db.AutoMigrate(&storageMemoryEntry{})
 }
 
-// AddSession ingests a session's LLM responses into the database.
+// AddSessionToMemory ingests a session's LLM responses into the database.
 // Re-adding the same session replaces its previous entries.
-func (s *DatabaseMemoryService) AddSession(ctx context.Context, curSession session.Session) error {
+func (s *DatabaseMemoryService) AddSessionToMemory(ctx context.Context, curSession session.Session) error {
 	appName := curSession.AppName()
 	userID := curSession.UserID()
 	sid := curSession.ID()
@@ -129,9 +129,9 @@ func (s *DatabaseMemoryService) AddSession(ctx context.Context, curSession sessi
 	})
 }
 
-// Search returns memory entries matching the query by keyword intersection,
+// SearchMemory returns memory entries matching the query by keyword intersection,
 // scoped to the given AppName and UserID.
-func (s *DatabaseMemoryService) Search(ctx context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
+func (s *DatabaseMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
 	var entries []storageMemoryEntry
 
 	if err := s.db.WithContext(ctx).

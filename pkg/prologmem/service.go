@@ -21,8 +21,8 @@ func NewService(pm *PrologMemory) *Service {
 	return &Service{pm: pm}
 }
 
-// AddSession ingests a session's LLM responses as mem_context facts.
-func (s *Service) AddSession(_ context.Context, sess session.Session) error {
+// AddSessionToMemory ingests a session's LLM responses as mem_context facts.
+func (s *Service) AddSessionToMemory(_ context.Context, sess session.Session) error {
 	sid := sess.ID()
 	for event := range sess.Events().All() {
 		if event.LLMResponse.Content == nil {
@@ -51,8 +51,8 @@ func (s *Service) AddSession(_ context.Context, sess session.Session) error {
 	return nil
 }
 
-// Search queries mem_fact and mem_rel predicates for keyword matches.
-func (s *Service) Search(_ context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
+// SearchMemory queries mem_fact and mem_rel predicates for keyword matches.
+func (s *Service) SearchMemory(_ context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
 	queryWords := extractQueryWords(req.Query)
 	if len(queryWords) == 0 {
 		return &memory.SearchResponse{}, nil
