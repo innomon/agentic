@@ -65,6 +65,17 @@ Agent -> ...
 
 Open http://localhost:8080/ui/ in your browser. Supports drag-and-drop file uploads.
 
+#### LAN Access
+
+To access the Web UI from another machine on your local network, specify your local IP address using the `-host` flag:
+
+```bash
+# Example: replace 192.168.1.10 with your actual local IP
+./agentic -webui -a2a -host=192.168.1.10
+```
+
+Then open `http://192.168.1.10:8080/ui/` on any device in the same network.
+
 ### OpenClaw WebSocket Gateway
 
 Run the OpenClaw WebSocket gateway as part of the web server:
@@ -101,6 +112,8 @@ Flags:
   -webui            Browser-based UI
   -a2a              REST API (A2A)
   -openclaw         OpenClaw WebSocket gateway
+  -host             Host for API/WebUI (e.g. local IP)
+  -port             Port to listen on (default: 8080)
 
 Options:
   --help            Show help message

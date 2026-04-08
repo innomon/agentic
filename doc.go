@@ -11,9 +11,19 @@
 //
 //	export GOOGLE_API_KEY="your-key"
 //	go build -o agentic .
-//	./agentic console                              # interactive terminal
-//	./agentic web                                   # web UI at :8080
-//	./agentic examples/farmer/config.yaml console   # custom config
+//	./agentic -console                            # interactive terminal
+//	./agentic -webui -a2a                          # web UI at :8080
+//	./agentic -webui -host=192.168.1.10            # LAN access
+//	./agentic examples/farmer/config.yaml -console # custom config
+//
+// # Command Line Flags
+//
+//   - -console          — Interactive terminal mode with @file attachments.
+//   - -webui            — Browser-based user interface.
+//   - -a2a              — REST API (A2A) sublauncher.
+//   - -openclaw         — OpenClaw WebSocket gateway sublauncher.
+//   - -host <string>    — Host to use for API and WebUI address (default: localhost).
+//   - -port <int>       — Port to listen on (default: 8080).
 //
 // # Architecture Overview
 //

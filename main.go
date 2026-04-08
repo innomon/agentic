@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 
@@ -34,6 +35,8 @@ func main() {
 	a2aFlag := flag.Bool("a2a", false, "add a2a launcher")
 	consoleFlag := flag.Bool("console", false, "add console launcher")
 	apiFlag := flag.Bool("api", true, "add api launcher")
+	host := flag.String("host", "localhost", "host to use for api_server_address and webui_address (e.g. your local IP)")
+	port := flag.Int("port", 8080, "port to listen on")
 	flag.Parse()
 
 	var cfg *config.Config
@@ -121,20 +124,77 @@ func main() {
 
 	l := universal.NewLauncher(launchers...)
 
-	remainingArgs := args[largs:]
-	if len(remainingArgs) == 0 {
-		remainingArgs = append(remainingArgs, "web")
+	// Build the command list first
+	var commands []string
+	if len(args[largs:]) == 0 {
+		commands = append(commands, "web")
 		if *apiFlag {
-			remainingArgs = append(remainingArgs, "api")
+			commands = append(commands, "api")
 		}
 		if cfg.OpenClaw {
-			remainingArgs = append(remainingArgs, "openclaw")
+			commands = append(commands, "openclaw")
 		}
 		if cfg.WebUI {
-			remainingArgs = append(remainingArgs, "webui")
+			commands = append(commands, "webui")
 		}
 		if cfg.A2A {
-			remainingArgs = append(remainingArgs, "a2a")
+			commands = append(commands, "a2a")
+		}
+	} else {
+		commands = args[largs:]
+	}
+
+	remainingArgs := commands
+
+	// Add port and host related flags to remainingArgs
+	// These flags are recognized by ADK's web launcher and its sublaunchers.
+	hostVal := *host
+	portVal := *port
+
+	hasPort := false
+	for _, arg := range remainingArgs {
+		if strings.HasPrefix(arg, "-port=") || arg == "-port" {
+			hasPort = true
+			break
+		}
+	}
+	if !hasPort {
+		remainingArgs = append(remainingArgs, fmt.Sprintf("-port=%d", portVal))
+	}
+
+	hasApiServerAddr := false
+	hasWebUIAddr := false
+	for _, arg := range remainingArgs {
+		if strings.HasPrefix(arg, "-api_server_address=") {
+			hasApiServerAddr = true
+		}
+		if strings.HasPrefix(arg, "-webui_address=") {
+			hasWebUIAddr = true
+		}
+	}
+
+	// Only add these flags if the relevant sublaunchers are likely to be active
+	isWebActive := false
+	isApiActive := false
+	isWebUIActive := false
+	for _, cmd := range commands {
+		if cmd == "web" {
+			isWebActive = true
+		}
+		if cmd == "api" {
+			isApiActive = true
+		}
+		if cmd == "webui" {
+			isWebUIActive = true
+		}
+	}
+
+	if isWebActive {
+		if isWebUIActive && !hasApiServerAddr {
+			remainingArgs = append(remainingArgs, fmt.Sprintf("-api_server_address=http://%s:%d/api", hostVal, portVal))
+		}
+		if isApiActive && !hasWebUIAddr {
+			remainingArgs = append(remainingArgs, fmt.Sprintf("-webui_address=%s:%d", hostVal, portVal))
 		}
 	}
 
