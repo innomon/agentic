@@ -45,6 +45,5 @@ func (r *Registry) BuildLauncherConfig(ctx context.Context) (*launcher.Config, e
 		}
 	}
 
-
 	return cfg, nil
 }

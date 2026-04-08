@@ -125,30 +125,56 @@ func Get[T any](ctx context.Context, r *Registry, name string) (T, error) {
 	r.mu.RUnlock()
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	return getOrLoadLocked[T](ctx, r, name)
-}
-
-func getOrLoadLocked[T any](ctx context.Context, r *Registry, name string) (T, error) {
-	k := itemKey[T](name)
+	// Check again under write lock
 	if v, ok := r.items[k]; ok {
+		r.mu.Unlock()
 		return v.(T), nil
+	}
+
+	// Check if already building to avoid redundant loads
+	if r.building[k] {
+		r.mu.Unlock()
+		// Simple wait/retry for building items.
+		for i := 0; i < 100; i++ {
+			time.Sleep(100 * time.Millisecond)
+			r.mu.RLock()
+			v, ok := r.items[k]
+			r.mu.RUnlock()
+			if ok {
+				return v.(T), nil
+			}
+		}
+		var zero T
+		return zero, fmt.Errorf("timeout waiting for %s to be built", k)
 	}
 
 	ldr, ok := r.loaders[typeOf[T]()]
 	if !ok {
+		r.mu.Unlock()
 		var zero T
 		return zero, fmt.Errorf("no loader registered for type %s", typeOf[T]())
 	}
 
+	r.building[k] = true
+	r.mu.Unlock() // RELEASE LOCK during loading
+
 	v, err := ldr(ctx, r, name)
+
+	r.mu.Lock()
+	delete(r.building, k)
 	if err != nil {
+		r.mu.Unlock()
 		var zero T
 		return zero, err
 	}
 
 	r.items[k] = v
+	r.mu.Unlock()
 	return v.(T), nil
+}
+
+func getOrLoadLocked[T any](ctx context.Context, r *Registry, name string) (T, error) {
+	return Get[T](ctx, r, name)
 }
 
 func (r *Registry) Config() *Config {
@@ -238,12 +264,6 @@ func (a *sandboxAdapter) CallTool(ctx context.Context, name string, args map[str
 }
 
 func loadAgent(ctx context.Context, r *Registry, name string) (any, error) {
-	if r.building[name] {
-		return nil, fmt.Errorf("circular dependency detected for agent %q", name)
-	}
-	r.building[name] = true
-	defer delete(r.building, name)
-
 	entry, err := r.cfg.GetAgent(name)
 	if err != nil {
 		return nil, err
@@ -251,7 +271,7 @@ func loadAgent(ctx context.Context, r *Registry, name string) (any, error) {
 
 	var subAgents []agent.Agent
 	for _, subName := range entry.SubAgents {
-		sub, err := getOrLoadLocked[agent.Agent](ctx, r, subName)
+		sub, err := Get[agent.Agent](ctx, r, subName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build sub-agent %q for %q: %w", subName, name, err)
 		}

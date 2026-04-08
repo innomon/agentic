@@ -33,6 +33,7 @@ func main() {
 	webUI := flag.Bool("webui", false, "add webui launcher")
 	a2aFlag := flag.Bool("a2a", false, "add a2a launcher")
 	consoleFlag := flag.Bool("console", false, "add console launcher")
+	apiFlag := flag.Bool("api", true, "add api launcher")
 	flag.Parse()
 
 	var cfg *config.Config
@@ -40,7 +41,13 @@ func main() {
 	var largs = 0
 	args := flag.Args()
 
-	if len(args) > 0 && (strings.HasSuffix(args[0], ".yml") || strings.HasSuffix(args[0], ".yaml")) {
+	if len(args) > 1 && (strings.HasSuffix(args[1], ".yml") || strings.HasSuffix(args[1], ".yaml")) {
+		cfg, err = config.Load(args[1])
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
+		args = append(args[:1], args[2:]...)
+	} else if len(args) > 0 && (strings.HasSuffix(args[0], ".yml") || strings.HasSuffix(args[0], ".yaml")) {
 		cfg, err = config.Load(args[0])
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
@@ -91,7 +98,11 @@ func main() {
 		log.Printf("JWT authentication enabled (issuer=%s, audience=%s)", jwt.Issuer, jwt.Audience)
 	}
 
-	webSublaunchers := []web.Sublauncher{api.NewLauncher()}
+	var webSublaunchers []web.Sublauncher
+
+	if *apiFlag {
+		webSublaunchers = append(webSublaunchers, api.NewLauncher())
+	}
 	if cfg.OpenClaw {
 		webSublaunchers = append(webSublaunchers, openclawlauncher.NewLauncher())
 	}
@@ -110,7 +121,24 @@ func main() {
 
 	l := universal.NewLauncher(launchers...)
 
-	if err := l.Execute(ctx, launcherConfig, args[largs:]); err != nil {
+	remainingArgs := args[largs:]
+	if len(remainingArgs) == 0 {
+		remainingArgs = append(remainingArgs, "web")
+		if *apiFlag {
+			remainingArgs = append(remainingArgs, "api")
+		}
+		if cfg.OpenClaw {
+			remainingArgs = append(remainingArgs, "openclaw")
+		}
+		if cfg.WebUI {
+			remainingArgs = append(remainingArgs, "webui")
+		}
+		if cfg.A2A {
+			remainingArgs = append(remainingArgs, "a2a")
+		}
+	}
+
+	if err := l.Execute(ctx, launcherConfig, remainingArgs); err != nil {
 		log.Fatalf("Launcher error: %v\n\n%s", err, l.CommandLineSyntax())
 	}
 }
