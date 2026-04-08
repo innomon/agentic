@@ -9,17 +9,17 @@ import (
 	"github.com/innomon/agentic/pkg/auth"
 	"github.com/innomon/agentic/pkg/config"
 	"github.com/innomon/agentic/pkg/console"
-	openclawlauncher "github.com/innomon/agentic/pkg/openclaw/launcher"
-	"github.com/innomon/agentic/pkg/registry"
 	_ "github.com/innomon/agentic/pkg/gnogent"
 	_ "github.com/innomon/agentic/pkg/ml"
 	_ "github.com/innomon/agentic/pkg/prologmem"
+	"github.com/innomon/agentic/pkg/registry"
 	_ "github.com/innomon/agentic/pkg/routing"
 	_ "github.com/innomon/agentic/pkg/wasm"
 
 	"github.com/a2aproject/a2a-go/a2asrv"
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"
+	"google.golang.org/adk/cmd/launcher/web/a2a"
 	"google.golang.org/adk/cmd/launcher/web/api"
 	"google.golang.org/adk/cmd/launcher/web/webui"
 )
@@ -70,7 +70,8 @@ func main() {
 
 	l := universal.NewLauncher(
 		console.New(),
-		web.NewLauncher(api.NewLauncher(), webui.NewLauncher(), openclawlauncher.NewLauncher()),
+		// openclawlauncher.NewLauncher()
+		web.NewLauncher(api.NewLauncher(), webui.NewLauncher(), a2a.NewLauncher()),
 	)
 
 	if err := l.Execute(ctx, launcherConfig, os.Args[largs:]); err != nil {
