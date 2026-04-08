@@ -15,6 +15,10 @@ type RawConfig struct {
 	Memory    *yaml.Node
 	Auth      *yaml.Node
 	RootAgent string
+	OpenClaw  bool
+	WebUI     bool
+	A2A       bool
+	Console   bool
 }
 
 func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -63,6 +67,14 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			r.Auth = val
 		case "root_agent":
 			r.RootAgent = val.Value
+		case "openclaw":
+			_ = val.Decode(&r.OpenClaw)
+		case "webui":
+			_ = val.Decode(&r.WebUI)
+		case "a2a":
+			_ = val.Decode(&r.A2A)
+		case "console":
+			_ = val.Decode(&r.Console)
 		}
 	}
 	return nil
@@ -136,6 +148,10 @@ type Config struct {
 	Memory    *MemoryConfig
 	Auth      *AuthConfig
 	RootAgent string
+	OpenClaw  bool
+	WebUI     bool
+	A2A       bool
+	Console   bool
 }
 
 func ParseRaw(raw *RawConfig) (*Config, error) {
@@ -145,6 +161,10 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 		Tools:     make(map[string]ToolEntry),
 		Sandboxes: make(map[string]SandboxEntry),
 		RootAgent: raw.RootAgent,
+		OpenClaw:  raw.OpenClaw,
+		WebUI:     raw.WebUI,
+		A2A:       raw.A2A,
+		Console:   raw.Console,
 	}
 
 	for name, node := range raw.Models {

@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/innomon/agentic/pkg/auth"
@@ -11,12 +11,14 @@ import (
 	"github.com/innomon/agentic/pkg/console"
 	_ "github.com/innomon/agentic/pkg/gnogent"
 	_ "github.com/innomon/agentic/pkg/ml"
+	openclawlauncher "github.com/innomon/agentic/pkg/openclaw/launcher"
 	_ "github.com/innomon/agentic/pkg/prologmem"
 	"github.com/innomon/agentic/pkg/registry"
 	_ "github.com/innomon/agentic/pkg/routing"
 	_ "github.com/innomon/agentic/pkg/wasm"
 
 	"github.com/a2aproject/a2a-go/a2asrv"
+	adklauncher "google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/universal"
 	"google.golang.org/adk/cmd/launcher/web"
 	"google.golang.org/adk/cmd/launcher/web/a2a"
@@ -26,21 +28,42 @@ import (
 
 func main() {
 	ctx := context.Background()
+
+	openClaw := flag.Bool("openclaw", false, "add openclaw launcher")
+	webUI := flag.Bool("webui", false, "add webui launcher")
+	a2aFlag := flag.Bool("a2a", false, "add a2a launcher")
+	consoleFlag := flag.Bool("console", false, "add console launcher")
+	flag.Parse()
+
 	var cfg *config.Config
 	var err error
-	var largs = 1
+	var largs = 0
+	args := flag.Args()
 
-	if len(os.Args) > 1 && (strings.HasSuffix(os.Args[1], ".yml") || strings.HasSuffix(os.Args[1], ".yaml")) {
-		cfg, err = config.Load(os.Args[1])
+	if len(args) > 0 && (strings.HasSuffix(args[0], ".yml") || strings.HasSuffix(args[0], ".yaml")) {
+		cfg, err = config.Load(args[0])
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
-		largs = 2
+		largs = 1
 	} else {
 		cfg, err = config.LoadDefault()
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
+	}
+
+	if *openClaw {
+		cfg.OpenClaw = true
+	}
+	if *webUI {
+		cfg.WebUI = true
+	}
+	if *a2aFlag {
+		cfg.A2A = true
+	}
+	if *consoleFlag {
+		cfg.Console = true
 	}
 
 	reg := registry.New(cfg)
@@ -68,13 +91,26 @@ func main() {
 		log.Printf("JWT authentication enabled (issuer=%s, audience=%s)", jwt.Issuer, jwt.Audience)
 	}
 
-	l := universal.NewLauncher(
-		console.New(),
-		// openclawlauncher.NewLauncher()
-		web.NewLauncher(api.NewLauncher(), webui.NewLauncher(), a2a.NewLauncher()),
-	)
+	webSublaunchers := []web.Sublauncher{api.NewLauncher()}
+	if cfg.OpenClaw {
+		webSublaunchers = append(webSublaunchers, openclawlauncher.NewLauncher())
+	}
+	if cfg.WebUI {
+		webSublaunchers = append(webSublaunchers, webui.NewLauncher())
+	}
+	if cfg.A2A {
+		webSublaunchers = append(webSublaunchers, a2a.NewLauncher())
+	}
 
-	if err := l.Execute(ctx, launcherConfig, os.Args[largs:]); err != nil {
+	var launchers []adklauncher.SubLauncher
+	if cfg.Console {
+		launchers = append(launchers, console.New())
+	}
+	launchers = append(launchers, web.NewLauncher(webSublaunchers...))
+
+	l := universal.NewLauncher(launchers...)
+
+	if err := l.Execute(ctx, launcherConfig, args[largs:]); err != nil {
 		log.Fatalf("Launcher error: %v\n\n%s", err, l.CommandLineSyntax())
 	}
 }

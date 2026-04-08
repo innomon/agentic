@@ -1,0 +1,24 @@
+# Example configuration showing new launcher flags
+# These flags can also be set via CLI:
+#   ./agentic -openclaw -webui -a2a -console config.yaml
+
+root_agent: RootAgent
+
+# Enable specific launchers by default in this config
+openclaw: true
+webui: true
+a2a: true
+console: true
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  RootAgent:
+    description: General-purpose assistant
+    model: gemini-flash
+    instruction: |
+      You are a helpful assistant.

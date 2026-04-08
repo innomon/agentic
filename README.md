@@ -60,7 +60,7 @@ Agent -> ...
 ### Web UI Mode
 
 ```bash
-./agentic web
+./agentic -webui -a2a
 ```
 
 Open http://localhost:8080/ui/ in your browser. Supports drag-and-drop file uploads.
@@ -71,10 +71,10 @@ Run the OpenClaw WebSocket gateway as part of the web server:
 
 ```bash
 # Web server with REST API + OpenClaw gateway
-./agentic web api openclaw
+./agentic -a2a -openclaw
 
 # All sublaunchers (API + Web UI + OpenClaw)
-./agentic web api webui openclaw
+./agentic -a2a -webui -openclaw
 ```
 
 The gateway listens on `/ws` by default. Use `-ws-path` to change it.
@@ -83,30 +83,27 @@ The standalone `cmd/clawgate` binary is also available for dedicated gateway dep
 
 ### Custom Configuration
 
-Load any YAML config file:
+Load any YAML config file. You can also enable launchers directly in the YAML file.
 
 ```bash
-./agentic examples/farmer/config.yaml console
-./agentic examples/med-fhir/config.yaml web
-./agentic path/to/my-config.yaml console
+./agentic examples/farmer/config.yaml -console
+./agentic examples/med-fhir/config.yaml -webui -a2a
+./agentic examples/flags/config.yaml
 ```
 
 ### Command Line
 
 ```bash
-./agentic [config.yaml] [mode] [options]
+./agentic [flags] [config.yaml] [options]
 
-Modes:
-  console           Interactive terminal mode
-  web               Web server mode (requires sublaunchers)
-
-Web sublaunchers:
-  api               REST API
-  webui             Browser-based UI
-  openclaw          OpenClaw WebSocket gateway
+Flags:
+  -console          Interactive terminal mode
+  -webui            Browser-based UI
+  -a2a              REST API (A2A)
+  -openclaw         OpenClaw WebSocket gateway
 
 Options:
-  --help    Show help message
+  --help            Show help message
 ```
 
 ## Examples
@@ -115,13 +112,14 @@ Pre-built use-case configurations in `examples/`:
 
 | Example | Description | Run Command |
 |---------|-------------|-------------|
-| [med-fhir](examples/med-fhir/) | Medical document → FHIR R5 JSON | `./agentic examples/med-fhir/config.yaml console` |
-| [farmer](examples/farmer/) | Organic farming advisor (India) | `./agentic examples/farmer/config.yaml console` |
-| [routing](examples/routing/) | Role-based user routing | `./agentic examples/routing/config.yaml console` |
-| [search](examples/search/) | Web search via Google Search | `./agentic examples/search/config.yaml console` |
-| [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic examples/wasm-sequential/config.yaml console` |
-| [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic examples/prolog-memory/config.yaml console` |
-| [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic examples/openclaw/config.yaml console` |
+| [flags](examples/flags/) | All launchers enabled in config | `./agentic examples/flags/config.yaml` |
+| [med-fhir](examples/med-fhir/) | Medical document → FHIR R5 JSON | `./agentic -console examples/med-fhir/config.yaml` |
+| [farmer](examples/farmer/) | Organic farming advisor (India) | `./agentic -console examples/farmer/config.yaml` |
+| [routing](examples/routing/) | Role-based user routing | `./agentic -console examples/routing/config.yaml` |
+| [search](examples/search/) | Web search via Google Search | `./agentic -console examples/search/config.yaml` |
+| [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic -console examples/wasm-sequential/config.yaml` |
+| [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic -console examples/prolog-memory/config.yaml` |
+| [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic -console examples/openclaw/config.yaml` |
 
 ## Configuration
 
