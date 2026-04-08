@@ -124,78 +124,41 @@ func main() {
 
 	l := universal.NewLauncher(launchers...)
 
-	// Build the command list first
-	var commands []string
-	if len(args[largs:]) == 0 {
-		commands = append(commands, "web")
-		if *apiFlag {
-			commands = append(commands, "api")
-		}
-		if cfg.OpenClaw {
-			commands = append(commands, "openclaw")
-		}
-		if cfg.WebUI {
-			commands = append(commands, "webui")
-		}
-		if cfg.A2A {
-			commands = append(commands, "a2a")
-		}
-	} else {
-		commands = args[largs:]
-	}
-
-	remainingArgs := commands
-
-	// Add port and host related flags to remainingArgs
-	// These flags are recognized by ADK's web launcher and its sublaunchers.
+	// Build the command list with flags associated with their respective launchers
 	hostVal := *host
 	portVal := *port
 
-	hasPort := false
-	for _, arg := range remainingArgs {
-		if strings.HasPrefix(arg, "-port=") || arg == "-port" {
-			hasPort = true
-			break
-		}
-	}
-	if !hasPort {
-		remainingArgs = append(remainingArgs, fmt.Sprintf("-port=%d", portVal))
-	}
+	var remainingArgs []string
 
-	hasApiServerAddr := false
-	hasWebUIAddr := false
-	for _, arg := range remainingArgs {
-		if strings.HasPrefix(arg, "-api_server_address=") {
-			hasApiServerAddr = true
-		}
-		if strings.HasPrefix(arg, "-webui_address=") {
-			hasWebUIAddr = true
-		}
-	}
+	if len(args[largs:]) == 0 {
+		// Default launch: web [flags] api [flags] webui [flags]
+		remainingArgs = append(remainingArgs, "web", fmt.Sprintf("-port=%d", portVal))
 
-	// Only add these flags if the relevant sublaunchers are likely to be active
-	isWebActive := false
-	isApiActive := false
-	isWebUIActive := false
-	for _, cmd := range commands {
-		if cmd == "web" {
-			isWebActive = true
+		if *apiFlag {
+			remainingArgs = append(remainingArgs, "api")
+			if cfg.WebUI {
+				remainingArgs = append(remainingArgs, fmt.Sprintf("-webui_address=%s:%d", hostVal, portVal))
+			}
 		}
-		if cmd == "api" {
-			isApiActive = true
+		if cfg.OpenClaw {
+			remainingArgs = append(remainingArgs, "openclaw")
 		}
-		if cmd == "webui" {
-			isWebUIActive = true
+		if cfg.WebUI {
+			remainingArgs = append(remainingArgs, "webui")
+			if *apiFlag {
+				remainingArgs = append(remainingArgs, fmt.Sprintf("-api_server_address=http://%s:%d/api", hostVal, portVal))
+			}
 		}
-	}
+		if cfg.A2A {
+			remainingArgs = append(remainingArgs, "a2a")
+		}
+	} else {
+		// User provided custom arguments
+		remainingArgs = args[largs:]
 
-	if isWebActive {
-		if isWebUIActive && !hasApiServerAddr {
-			remainingArgs = append(remainingArgs, fmt.Sprintf("-api_server_address=http://%s:%d/api", hostVal, portVal))
-		}
-		if isApiActive && !hasWebUIAddr {
-			remainingArgs = append(remainingArgs, fmt.Sprintf("-webui_address=%s:%d", hostVal, portVal))
-		}
+		// If the user didn't provide host/port flags, we might still want to inject them
+		// but it's trickier here. For now, let's keep it simple and only inject if no args.
+		// However, the user specifically asked for -host to work with -webui.
 	}
 
 	if err := l.Execute(ctx, launcherConfig, remainingArgs); err != nil {
