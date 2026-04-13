@@ -2,11 +2,11 @@
 #
 # This is a minimal configuration to get started.
 # See examples/ for domain-specific configurations:
-#   ./agentic examples/med-fhir/config.yaml console    # Medical FHIR transcription
-#   ./agentic examples/farmer/config.yaml console       # Organic farming advisor
-#   ./agentic examples/routing/config.yaml console       # Role-based routing
-#   ./agentic examples/search/config.yaml console        # Web search agent
-#   ./agentic examples/wasm-sequential/config.yaml console  # WASM orchestrator
+#   ./agentic -console examples/med-fhir/config.yaml    # Medical FHIR transcription
+#   ./agentic -console examples/farmer/config.yaml       # Organic farming advisor
+#   ./agentic -console examples/routing/config.yaml       # Role-based routing
+#   ./agentic -console examples/search/config.yaml        # Web search agent
+#   ./agentic -console examples/wasm-sequential/config.yaml  # WASM orchestrator
 
 root_agent: RootAgent
 

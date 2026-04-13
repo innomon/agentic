@@ -23,6 +23,9 @@ go.work
 *.swp
 *.swo
 
+# temp dir
+.tmp/
+
 # OS
 .DS_Store
 Thumbs.db

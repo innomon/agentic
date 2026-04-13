@@ -5,7 +5,7 @@ Converts medical documents (PDFs and images) into FHIR R5 compliant JSON using a
 ## Usage
 
 ```bash
-./agentic examples/med-fhir/config.yaml console
+./agentic -console examples/med-fhir/config.yaml
 ```
 
 ## Agent Hierarchy
@@ -26,6 +26,14 @@ Converts medical documents (PDFs and images) into FHIR R5 compliant JSON using a
 - **LOINC**: Lab tests, document types
 - **SNOMED CT**: Clinical findings, body sites
 - **UCUM**: Units of measure
+
+## Go Implementation & Types
+
+The `pkg/fhir/` directory contains Go type definitions for FHIR R5 resources.
+
+- **Reference Schema**: These types serve as a reference for the JSON structure the LLM agents are instructed to produce.
+- **Custom Extensions**: When importing `agentic` as a library in your own Go application, you can use these types to strongly-type and validate the agents' output.
+- **Standalone Execution**: When running via the `agentic` binary with `config.yaml`, these Go files are **not** compiled into the executable. The agents function as standard `llm` agents using system instructions to generate the JSON.
 
 ## Disclaimer
 

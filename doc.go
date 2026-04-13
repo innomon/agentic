@@ -14,7 +14,7 @@
 //	./agentic -console                            # interactive terminal
 //	./agentic -webui -a2a                          # web UI at :8080
 //	./agentic -webui -host=192.168.1.10            # LAN access
-//	./agentic examples/farmer/config.yaml -console # custom config
+//	./agentic -console examples/farmer/config.yaml # custom config
 //
 // # Command Line Flags
 //

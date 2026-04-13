@@ -97,8 +97,8 @@ The standalone `cmd/clawgate` binary is also available for dedicated gateway dep
 Load any YAML config file. You can also enable launchers directly in the YAML file.
 
 ```bash
-./agentic examples/farmer/config.yaml -console
-./agentic examples/med-fhir/config.yaml -webui -a2a
+./agentic -console examples/farmer/config.yaml
+./agentic -webui -a2a examples/med-fhir/config.yaml
 ./agentic examples/flags/config.yaml
 ```
 
