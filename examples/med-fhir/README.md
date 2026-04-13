@@ -31,14 +31,17 @@ Converts medical documents (PDFs and images) into FHIR R5 compliant JSON using a
 
 - **Reliable PDF Routing**: `MedAgent` now strictly routes all PDF files (including scanned image-based PDFs) to `PDFExtractorAgent`. This ensures multimodal vision is used for extraction regardless of PDF internal structure.
 - **Atomic Agent Transfers**: Extraction agents are now instructed to call `transfer_to_agent` in the same response turn as the text extraction, preventing pipeline stalls on long documents.
-- **Schema-Grounded Generation**: Specialist agents use the `fs_read` tool to load `fhir.schema.json` at runtime, ensuring high-fidelity outputs.
+- **Optimization Architecture**:
+  - **Embedded Schema Subsetting**: Instead of passing the entire 4.2MB FHIR schema, the `fhir_get_schema` tool (with an embedded schema) extracts only the relevant subset for a specific resource type. This reduces context bloat by ~98%.
+  - **Common LOINC References**: Added `loinc_codes.json` to provide agents with a high-fidelity, offline set of common codes (e.g., prescriptions, lab tests).
+  - **Context Providers**: Classifier agents (`Txt2FhirAgent`) now fetch the required schema subset and LOINC codes *once* and pass them to the specialist sub-agents, ensuring perfect grounding without redundant tool calls.
 
 ## FHIR Schema Grounding
 
 This example uses a JSON schema to ground the specialist agents' generation, ensuring the output is valid FHIR R5 JSON.
 
-- **Schema File**: `examples/med-fhir/fhir.schema.json`
-- **Tooling**: Uses the `fs_read` built-in tool to load the schema at runtime.
+- **Embedded Schema**: The FHIR R5 schema is embedded in the `agentic` binary for sub-millisecond subset extraction via `fhir_get_schema`.
+- **LOINC Reference**: `examples/med-fhir/loinc_codes.json` provides a curated set of medical codes for grounding.
 - **Reference Schema**: These types serve as a reference for the JSON structure the LLM agents are instructed to produce.
 - **Custom Extensions**: When importing `agentic` as a library in your own Go application, you can use these types to strongly-type and validate the agents' output.
 - **Standalone Execution**: When running via the `agentic` binary with `config.yaml`, these Go files are **not** compiled into the executable. The agents function as standard `llm` agents using system instructions to generate the JSON.

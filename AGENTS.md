@@ -238,6 +238,26 @@ agents:
       Use the schema_reader tool to load 'fhir.schema.json' before generating output.
 ```
 
+#### FHIR Optimization Tool (`fhir_get_schema`)
+
+The `fhir_get_schema` tool extracts a specialized subset of the FHIR R5 schema (e.g., just `MedicationRequest` plus its dependencies). This reduces token bloat by avoiding passing the entire 4.2MB schema.
+
+```yaml
+tools:
+  fhir_ctx:
+    type: builtin
+    name: fhir_get_schema
+    description: Fetch resource-specific schema subset
+    parameters:
+      resource_type: {type: string, required: true}
+
+agents:
+  Classifier:
+    tools: [fhir_ctx]
+    instruction: |
+      Use fhir_ctx(resource_type="Composition") to get the grounded schema for discharge summaries.
+```
+
 ## UserDB Tools
 
 The `userdb` tool type provides GORM-backed user profile management. Tools share a singleton DB connection per DSN.

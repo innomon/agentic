@@ -1,0 +1,22 @@
+{
+  "document_types": {
+    "Prescription": "57833-6",
+    "DischargeSummary": "11490-0",
+    "LabReport": "11502-2",
+    "DiagnosticImaging": "18748-4",
+    "ClinicalNote": "11506-3"
+  },
+  "sections": {
+    "ChiefComplaint": "10154-3",
+    "HospitalCourse": "8648-8",
+    "DischargeDiagnosis": "11535-2",
+    "MedicationsAtDischarge": "10183-2",
+    "FollowUpPlan": "18776-5"
+  },
+  "coding_systems": {
+    "LOINC": "http://loinc.org",
+    "SNOMED": "http://snomed.info/sct",
+    "RxNorm": "http://www.nlm.nih.gov/research/umls/rxnorm",
+    "UCUM": "http://unitsofmeasure.org"
+  }
+}

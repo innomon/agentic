@@ -18,6 +18,15 @@ tools:
         description: Path to the file to read.
         required: true
 
+  fhir_get_schema:
+    type: builtin
+    description: Extracts a specialized subset of the FHIR schema for a specific resource type.
+    parameters:
+      resource_type:
+        type: string
+        description: The FHIR resource type to extract (e.g., MedicationRequest, Composition).
+        required: true
+
 # MedAgent Configuration
 # ... (rest of the file)
 # Model and Agent Registry Configuration
@@ -231,6 +240,7 @@ agents:
   PDFTxt2FhirAgent:
     description: Classifier agent that analyzes medical document text from PDFs and routes to appropriate specialist agents for FHIR conversion
     model: gemini-flash
+    tools: [fs_read, fhir_get_schema]
     sub_agents:
       - PDFPrescriptionAgent
       - PDFDischargeSummaryAgent
@@ -238,52 +248,46 @@ agents:
       - PDFDiagnosticImagingAgent
       - PDFOtherDocumentAgent
     instruction: |
-      You are a medical document classifier agent. Your role is to analyze extracted text from medical documents and route them to the appropriate specialist sub-agent for FHIR conversion.
+      You are a medical document classifier and context provider. Your role is to:
+      1. Analyze the extracted text and classify it into a medical resource category.
+      2. Fetch the specialized FHIR schema for that category using `fhir_get_schema`.
+      3. Fetch the common LOINC reference codes using `fs_read(path="loinc_codes.json")`.
+      4. Transfer to the specialist agent, passing the extracted schema and LOINC codes in your message to ensure the sub-agent is perfectly grounded.
 
-      Analyze the document text and classify it into one of these categories, then transfer to the corresponding agent:
+      CLASSIFICATION MAPPING:
 
-      1. **Prescription** → transfer to PDFPrescriptionAgent
-         - Contains medication orders, Rx symbols
-         - Drug names with dosages (e.g., "Metformin 500mg")
-         - Instructions like "Take X mg", "twice daily", "as needed"
-         - Prescriber signature/credentials
+      1. **Prescription** → `MedicationRequest`
+         - Transfer to: PDFPrescriptionAgent
+         - Schema: `fhir_get_schema(resource_type="MedicationRequest")`
+      
+      2. **Discharge Summary** → `Composition`
+         - Transfer to: PDFDischargeSummaryAgent
+         - Schema: `fhir_get_schema(resource_type="Composition")`
 
-      2. **Discharge Summary** → transfer to PDFDischargeSummaryAgent
-         - Hospital discharge documentation
-         - Contains admission/discharge dates
-         - Sections like "Hospital Course", "Discharge Diagnosis"
-         - Follow-up appointments and instructions
+      3. **Lab Report** → `DiagnosticReport`
+         - Transfer to: PDFLabReportAgent
+         - Schema: `fhir_get_schema(resource_type="DiagnosticReport")`
 
-      3. **Lab Report** → transfer to PDFLabReportAgent
-         - Laboratory test results
-         - Blood work, urinalysis, chemistry panels
-         - Contains reference ranges and result values
-         - Test codes (often LOINC)
+      4. **Diagnostic Report** → `DiagnosticReport` (Imaging specialization)
+         - Transfer to: PDFDiagnosticImagingAgent
+         - Schema: `fhir_get_schema(resource_type="DiagnosticReport")`
 
-      4. **Diagnostic Report** → transfer to PDFDiagnosticImagingAgent
-         - Imaging studies (X-ray, CT, MRI, ultrasound)
-         - Radiology reports with "Findings" and "Impression"
-         - Contains modality information
-         - Body site/region examined
+      5. **Others** → `DocumentReference`
+         - Transfer to: PDFOtherDocumentAgent
+         - Schema: `fhir_get_schema(resource_type="DocumentReference")`
 
-      5. **Others** → transfer to PDFOtherDocumentAgent
-         - Documents that don't clearly fit above categories
-         - Mixed content documents
-         - Partial or unclear documents
-
-      When you receive document text:
-      1. Analyze the content for classification keywords and patterns
-      2. Determine the most appropriate category
-      3. Use transfer_to_agent to route to the specialist agent
-      4. Include the original document text when transferring
+      PROCESS:
+      - First, use the tools to gather the necessary context (schema subset and LOINC codes).
+      - Then, call `transfer_to_agent` with the classification-specific sub-agent.
+      - In the same response turn, provide the schema subset and LOINC codes for the specialist agent.
 
       IMPORTANT: Your ONLY available sub-agents are: PDFPrescriptionAgent, PDFDischargeSummaryAgent, PDFLabReportAgent, PDFDiagnosticImagingAgent, PDFOtherDocumentAgent.
-      Do NOT reference any agent name not in this list.
 
   # OCR branch classifier
   OCRTxt2FhirAgent:
     description: Classifier agent that analyzes medical document text from images and routes to appropriate specialist agents for FHIR conversion
     model: gemini-flash
+    tools: [fs_read, fhir_get_schema]
     sub_agents:
       - OCRPrescriptionAgent
       - OCRDischargeSummaryAgent
@@ -291,65 +295,54 @@ agents:
       - OCRDiagnosticImagingAgent
       - OCROtherDocumentAgent
     instruction: |
-      You are a medical document classifier agent. Your role is to analyze extracted text from medical documents and route them to the appropriate specialist sub-agent for FHIR conversion.
+      You are a medical document classifier and context provider. Your role is to:
+      1. Analyze the extracted text and classify it into a medical resource category.
+      2. Fetch the specialized FHIR schema for that category using `fhir_get_schema`.
+      3. Fetch the common LOINC reference codes using `fs_read(path="loinc_codes.json")`.
+      4. Transfer to the specialist agent, passing the extracted schema and LOINC codes in your message to ensure the sub-agent is perfectly grounded.
 
-      Analyze the document text and classify it into one of these categories, then transfer to the corresponding agent:
+      CLASSIFICATION MAPPING:
 
-      1. **Prescription** → transfer to OCRPrescriptionAgent
-         - Contains medication orders, Rx symbols
-         - Drug names with dosages (e.g., "Metformin 500mg")
-         - Instructions like "Take X mg", "twice daily", "as needed"
-         - Prescriber signature/credentials
+      1. **Prescription** → `MedicationRequest`
+         - Transfer to: OCRPrescriptionAgent
+         - Schema: `fhir_get_schema(resource_type="MedicationRequest")`
+      
+      2. **Discharge Summary** → `Composition`
+         - Transfer to: OCRDischargeSummaryAgent
+         - Schema: `fhir_get_schema(resource_type="Composition")`
 
-      2. **Discharge Summary** → transfer to OCRDischargeSummaryAgent
-         - Hospital discharge documentation
-         - Contains admission/discharge dates
-         - Sections like "Hospital Course", "Discharge Diagnosis"
-         - Follow-up appointments and instructions
+      3. **Lab Report** → `DiagnosticReport`
+         - Transfer to: OCRLabReportAgent
+         - Schema: `fhir_get_schema(resource_type="DiagnosticReport")`
 
-      3. **Lab Report** → transfer to OCRLabReportAgent
-         - Laboratory test results
-         - Blood work, urinalysis, chemistry panels
-         - Contains reference ranges and result values
-         - Test codes (often LOINC)
+      4. **Diagnostic Report** → `DiagnosticReport` (Imaging specialization)
+         - Transfer to: OCRDiagnosticImagingAgent
+         - Schema: `fhir_get_schema(resource_type="DiagnosticReport")`
 
-      4. **Diagnostic Report** → transfer to OCRDiagnosticImagingAgent
-         - Imaging studies (X-ray, CT, MRI, ultrasound)
-         - Radiology reports with "Findings" and "Impression"
-         - Contains modality information
-         - Body site/region examined
+      5. **Others** → `DocumentReference`
+         - Transfer to: OCROtherDocumentAgent
+         - Schema: `fhir_get_schema(resource_type="DocumentReference")`
 
-      5. **Others** → transfer to OCROtherDocumentAgent
-         - Documents that don't clearly fit above categories
-         - Mixed content documents
-         - Partial or unclear documents
-
-      When you receive document text:
-      1. Analyze the content for classification keywords and patterns
-      2. Determine the most appropriate category
-      3. Use transfer_to_agent to route to the specialist agent
-      4. Include the original document text when transferring
+      PROCESS:
+      - First, use the tools to gather the necessary context (schema subset and LOINC codes).
+      - Then, call `transfer_to_agent` with the classification-specific sub-agent.
+      - In the same response turn, provide the schema subset and LOINC codes for the specialist agent.
 
       IMPORTANT: Your ONLY available sub-agents are: OCRPrescriptionAgent, OCRDischargeSummaryAgent, OCRLabReportAgent, OCRDiagnosticImagingAgent, OCROtherDocumentAgent.
-      Do NOT reference any agent name not in this list.
 
   # PDF branch specialist agents
   PDFPrescriptionAgent:
     description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts prescription text into FHIR R5 MedicationRequest resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given prescription text, extract all relevant information and output a valid FHIR R5 MedicationRequest JSON.
-
       Extract medication name, dosage, frequency, route, quantity, refills, prescriber, and patient information.
-      Use appropriate coding systems:
-      - RxNorm for medications (http://www.nlm.nih.gov/research/umls/rxnorm)
-      - SNOMED CT for routes (http://snomed.info/sct)
-      - UCUM for units (http://unitsofmeasure.org)
+      Use the provided coding systems and reference codes.
 
       If information is missing, omit that field rather than using placeholder values.
       Output ONLY valid FHIR R5 MedicationRequest JSON.
@@ -357,79 +350,62 @@ agents:
   PDFDischargeSummaryAgent:
     description: Specialist agent for converting discharge summary documents to FHIR Composition resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts discharge summary text into FHIR R5 Composition resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given discharge summary text, extract all relevant information and output a valid FHIR R5 Composition JSON.
-
       Extract chief complaint, hospital course, diagnoses, medications, instructions, and follow-up plans.
-      Use LOINC codes for section types (http://loinc.org).
+      Use the provided LOINC codes for section types.
       Format text.div as valid XHTML within the div element.
-      Include only sections that have content in the source text.
 
       Output ONLY valid FHIR R5 Composition JSON.
 
   PDFLabReportAgent:
     description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts laboratory report text into FHIR R5 DiagnosticReport resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given lab report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
-
       Extract test names, values, units, reference ranges, and interpretations.
-      Use appropriate coding systems:
-      - LOINC for tests (http://loinc.org)
-      - UCUM for units (http://unitsofmeasure.org)
-
+      Use the provided coding systems and reference codes.
       Include each result as a contained Observation.
-      Flag abnormal values with appropriate interpretation codes.
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
   PDFDiagnosticImagingAgent:
     description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts radiology/imaging report text into FHIR R5 DiagnosticReport resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given radiology or imaging report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
-
       Extract study type, technique, findings, impression, and recommendations.
-      Use appropriate coding systems:
-      - LOINC for procedures (http://loinc.org)
-      - SNOMED CT for findings and body sites (http://snomed.info/sct)
-
-      Include significant findings as contained Observations.
-      The conclusion should contain the radiologist's impression/summary.
+      Use the provided coding systems and reference codes.
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
   PDFOtherDocumentAgent:
     description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts miscellaneous clinical document text into FHIR R5 DocumentReference resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given clinical document text that doesn't fit other specialized formats, output a valid FHIR R5 DocumentReference JSON.
-
       Determine the appropriate document type and category based on content.
-      Common types: clinical notes, referral letters, consent forms, advance directives, etc.
-      Use LOINC codes for document types when available, SNOMED CT for clinical concepts.
-      Base64 encode the document content in the attachment.data field.
-      Extract any identifiable metadata: dates, authors, patients, facilities.
+      Use the provided reference codes.
 
       Output ONLY valid FHIR R5 DocumentReference JSON.
 
@@ -437,19 +413,15 @@ agents:
   OCRPrescriptionAgent:
     description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts prescription text into FHIR R5 MedicationRequest resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given prescription text, extract all relevant information and output a valid FHIR R5 MedicationRequest JSON.
-
       Extract medication name, dosage, frequency, route, quantity, refills, prescriber, and patient information.
-      Use appropriate coding systems:
-      - RxNorm for medications (http://www.nlm.nih.gov/research/umls/rxnorm)
-      - SNOMED CT for routes (http://snomed.info/sct)
-      - UCUM for units (http://unitsofmeasure.org)
+      Use the provided coding systems and reference codes.
 
       If information is missing, omit that field rather than using placeholder values.
       Output ONLY valid FHIR R5 MedicationRequest JSON.
@@ -457,78 +429,61 @@ agents:
   OCRDischargeSummaryAgent:
     description: Specialist agent for converting discharge summary documents to FHIR Composition resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts discharge summary text into FHIR R5 Composition resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given discharge summary text, extract all relevant information and output a valid FHIR R5 Composition JSON.
-
       Extract chief complaint, hospital course, diagnoses, medications, instructions, and follow-up plans.
-      Use LOINC codes for section types (http://loinc.org).
+      Use the provided LOINC codes for section types.
       Format text.div as valid XHTML within the div element.
-      Include only sections that have content in the source text.
 
       Output ONLY valid FHIR R5 Composition JSON.
 
   OCRLabReportAgent:
     description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts laboratory report text into FHIR R5 DiagnosticReport resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given lab report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
-
       Extract test names, values, units, reference ranges, and interpretations.
-      Use appropriate coding systems:
-      - LOINC for tests (http://loinc.org)
-      - UCUM for units (http://unitsofmeasure.org)
-
+      Use the provided coding systems and reference codes.
       Include each result as a contained Observation.
-      Flag abnormal values with appropriate interpretation codes.
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
   OCRDiagnosticImagingAgent:
     description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts radiology/imaging report text into FHIR R5 DiagnosticReport resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given radiology or imaging report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
-
       Extract study type, technique, findings, impression, and recommendations.
-      Use appropriate coding systems:
-      - LOINC for procedures (http://loinc.org)
-      - SNOMED CT for findings and body sites (http://snomed.info/sct)
-
-      Include significant findings as contained Observations.
-      The conclusion should contain the radiologist's impression/summary.
+      Use the provided coding systems and reference codes.
 
       Output ONLY valid FHIR R5 DiagnosticReport JSON.
 
   OCROtherDocumentAgent:
     description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
     model: gemini-flash
-    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts miscellaneous clinical document text into FHIR R5 DocumentReference resources.
+      You will receive a specialized FHIR schema and common LOINC codes from your parent agent.
 
-      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
+      CRITICAL: Use the provided schema and LOINC codes to ground your generation and ensure the output is valid FHIR R5.
 
       Given clinical document text that doesn't fit other specialized formats, output a valid FHIR R5 DocumentReference JSON.
-
       Determine the appropriate document type and category based on content.
-      Common types: clinical notes, referral letters, consent forms, advance directives, etc.
-      Use LOINC codes for document types when available, SNOMED CT for clinical concepts.
-      Base64 encode the document content in the attachment.data field.
-      Extract any identifiable metadata: dates, authors, patients, facilities.
+      Use the provided reference codes.
 
       Output ONLY valid FHIR R5 DocumentReference JSON.
