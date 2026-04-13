@@ -19,6 +19,7 @@ type RawConfig struct {
 	WebUI     bool
 	A2A       bool
 	Console   bool
+	BasePath  string
 }
 
 func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -152,6 +153,7 @@ type Config struct {
 	WebUI     bool
 	A2A       bool
 	Console   bool
+	BasePath  string
 }
 
 func ParseRaw(raw *RawConfig) (*Config, error) {
@@ -165,6 +167,7 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 		WebUI:     raw.WebUI,
 		A2A:       raw.A2A,
 		Console:   raw.Console,
+		BasePath:  raw.BasePath,
 	}
 
 	for name, node := range raw.Models {

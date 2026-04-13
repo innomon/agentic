@@ -14,6 +14,7 @@ import (
 	_ "github.com/innomon/agentic/pkg/ml"
 	openclawlauncher "github.com/innomon/agentic/pkg/openclaw/launcher"
 	_ "github.com/innomon/agentic/pkg/prologmem"
+	_ "github.com/innomon/agentic/pkg/fsread"
 	"github.com/innomon/agentic/pkg/registry"
 	_ "github.com/innomon/agentic/pkg/routing"
 	_ "github.com/innomon/agentic/pkg/wasm"

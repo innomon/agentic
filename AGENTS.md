@@ -110,6 +110,7 @@ agentic/
 │       ├── config.yaml
 │       └── README.md
 ├── pkg/
+│   ├── fsread/                  # Filesystem tool (fs_read)
 │   ├── compreg/
 │   │   └── compreg.go           # Global component register (shared map)
 │   ├── config/
@@ -193,6 +194,7 @@ agentic/
 - Agent functions should accept `(ctx context.Context, m model.LLM)` and return `(agent.Agent, error)`
 - Use `SubAgents` field in `llmagent.Config` for routing to sub-agents
 - ADK-Go auto-injects `transfer_to_agent` tool when SubAgents are declared
+- **Atomic Transfers**: When an agent performs a task and then transfers to a sub-agent (e.g., text extraction followed by FHIR conversion), instruct the agent to call `transfer_to_agent` in the **same response** as its task output. This prevents the pipeline from stalling, especially when the task output is large.
 - **ADK limitation**: Each agent can only have one parent. Duplicate agent trees if multiple parents need the same sub-agent.
 
 ## Tools Registry
@@ -215,6 +217,25 @@ agents:
 registry.RegisterToolHandler("my_tool", func(ctx context.Context, args map[string]any) (any, error) {
     return result, nil
 })
+```
+
+#### Filesystem Tool (`fs_read`)
+
+The `fs_read` built-in tool allows agents to read local files for grounding or reference.
+
+```yaml
+tools:
+  schema_reader:
+    type: builtin
+    description: Read the FHIR schema
+    parameters:
+      path: {type: string, required: true}
+
+agents:
+  SpecialistAgent:
+    tools: [schema_reader]
+    instruction: |
+      Use the schema_reader tool to load 'fhir.schema.json' before generating output.
 ```
 
 ## UserDB Tools

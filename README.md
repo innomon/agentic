@@ -347,7 +347,7 @@ registry.RegisterToolHandler("get_weather", func(ctx context.Context, args map[s
 
 | Type | Description |
 |------|-------------|
-| `builtin` | Default — Go-registered handler |
+| `builtin` | Default — Go-registered handler (e.g., `fs_read`) |
 | `gemini` | Gemini built-in tools (e.g., `google_search`) |
 | `userdb` | GORM-backed user profile CRUD |
 | `wasm` | Sandboxed WebAssembly module |
@@ -693,6 +693,7 @@ agentic/
 │   └── wasm-sequential/             # WASM orchestrator
 ├── pkg/
 │   ├── auth/                        # JWT verification middleware
+│   ├── fsread/                      # Filesystem tool (fs_read)
 │   ├── compreg/                     # Component register
 │   ├── config/                      # Config file loader
 │   ├── console/                     # Console with @file attachments

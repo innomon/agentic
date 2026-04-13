@@ -7,7 +7,19 @@
 
 root_agent: MedAgent
 
+# Tools Registry
+tools:
+  fs_read:
+    type: builtin
+    description: Reads a file from the filesystem.
+    parameters:
+      path:
+        type: string
+        description: Path to the file to read.
+        required: true
+
 # MedAgent Configuration
+# ... (rest of the file)
 # Model and Agent Registry Configuration
 #
 # Each component type (agent/model) defines its own config schema.
@@ -54,11 +66,13 @@ agents:
       - File extensions: .pdf
       - User mentions "PDF" or provides a PDF file
       - Content-type indicators suggesting PDF format
+      - CRITICAL: ALL files of MIME type 'application/pdf' MUST be routed to PDFExtractorAgent, even if they appear to be images (scanned PDFs).
 
       ### Image Files → Transfer to OCRAgent
       - File extensions: .png, .jpg, .jpeg, .tiff, .tif
       - User mentions image formats or provides an image file
       - Content-type indicators suggesting image format
+      - ONLY route to OCRAgent if the input is a raw image file, NOT a PDF.
 
       ## Routing Process
 
@@ -68,8 +82,8 @@ agents:
          - Attached file metadata or content indicators
 
       2. **Route to Appropriate Agent**: Use transfer_to_agent to send the request to:
-         - PDFExtractorAgent for PDF documents
-         - OCRAgent for image files (PNG, JPG, JPEG, TIFF)
+         - PDFExtractorAgent for ALL PDF documents
+         - OCRAgent for raw image files (PNG, JPG, JPEG, TIFF)
 
       3. **Handle Ambiguous Cases**: If the file type cannot be determined:
          - Ask the user to clarify the file type
@@ -149,7 +163,7 @@ agents:
          [Content with preserved structure]
          ---
 
-      After extracting all text from the PDF, you MUST call transfer_to_agent with agent_name="PDFTxt2FhirAgent" for FHIR conversion.
+      CRITICAL: After extracting ALL text from the PDF, you MUST call transfer_to_agent with agent_name="PDFTxt2FhirAgent" in the SAME response as your extraction output. Do NOT wait for another turn.
       IMPORTANT: Your ONLY available sub-agent is PDFTxt2FhirAgent. Do NOT reference any other agent name.
 
   OCRAgent:
@@ -210,7 +224,7 @@ agents:
          [Footer/signature information]
          ---
 
-      After extracting the text, you MUST call transfer_to_agent with agent_name="OCRTxt2FhirAgent" for FHIR conversion.
+      CRITICAL: After extracting the text, you MUST call transfer_to_agent with agent_name="OCRTxt2FhirAgent" in the SAME response as your extraction output. Do NOT wait for another turn.
       IMPORTANT: Your ONLY available sub-agent is OCRTxt2FhirAgent. Do NOT reference any other agent name.
 
   # PDF branch classifier
@@ -323,8 +337,11 @@ agents:
   PDFPrescriptionAgent:
     description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts prescription text into FHIR R5 MedicationRequest resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given prescription text, extract all relevant information and output a valid FHIR R5 MedicationRequest JSON.
 
@@ -340,8 +357,11 @@ agents:
   PDFDischargeSummaryAgent:
     description: Specialist agent for converting discharge summary documents to FHIR Composition resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts discharge summary text into FHIR R5 Composition resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given discharge summary text, extract all relevant information and output a valid FHIR R5 Composition JSON.
 
@@ -355,8 +375,11 @@ agents:
   PDFLabReportAgent:
     description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts laboratory report text into FHIR R5 DiagnosticReport resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given lab report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
 
@@ -373,8 +396,11 @@ agents:
   PDFDiagnosticImagingAgent:
     description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts radiology/imaging report text into FHIR R5 DiagnosticReport resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given radiology or imaging report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
 
@@ -391,8 +417,11 @@ agents:
   PDFOtherDocumentAgent:
     description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts miscellaneous clinical document text into FHIR R5 DocumentReference resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given clinical document text that doesn't fit other specialized formats, output a valid FHIR R5 DocumentReference JSON.
 
@@ -408,8 +437,11 @@ agents:
   OCRPrescriptionAgent:
     description: Specialist agent for converting prescription documents to FHIR MedicationRequest resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts prescription text into FHIR R5 MedicationRequest resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given prescription text, extract all relevant information and output a valid FHIR R5 MedicationRequest JSON.
 
@@ -425,8 +457,11 @@ agents:
   OCRDischargeSummaryAgent:
     description: Specialist agent for converting discharge summary documents to FHIR Composition resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts discharge summary text into FHIR R5 Composition resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given discharge summary text, extract all relevant information and output a valid FHIR R5 Composition JSON.
 
@@ -440,8 +475,11 @@ agents:
   OCRLabReportAgent:
     description: Specialist agent for converting laboratory report documents to FHIR DiagnosticReport resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts laboratory report text into FHIR R5 DiagnosticReport resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given lab report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
 
@@ -458,8 +496,11 @@ agents:
   OCRDiagnosticImagingAgent:
     description: Specialist agent for converting diagnostic imaging reports to FHIR DiagnosticReport resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts radiology/imaging report text into FHIR R5 DiagnosticReport resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given radiology or imaging report text, extract all relevant information and output a valid FHIR R5 DiagnosticReport JSON.
 
@@ -476,8 +517,11 @@ agents:
   OCROtherDocumentAgent:
     description: Specialist agent for converting unclassified medical documents to FHIR DocumentReference resources
     model: gemini-flash
+    tools: [fs_read]
     instruction: |
       You are a specialist agent that converts miscellaneous clinical document text into FHIR R5 DocumentReference resources.
+
+      CRITICAL: You MUST use the `fs_read` tool to load the FHIR schema from `fhir.schema.json` to ground your generation and ensure the output is valid FHIR R5.
 
       Given clinical document text that doesn't fit other specialized formats, output a valid FHIR R5 DocumentReference JSON.
 

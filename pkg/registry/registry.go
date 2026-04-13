@@ -22,6 +22,9 @@ var (
 	_ ModelRegistry           = (*modelAdapter)(nil)
 	_ ToolRegistry            = (*toolAdapter)(nil)
 	_ agent.InvocationContext = (*Registry)(nil)
+
+	// BasePath is the directory of the currently loaded config file.
+	BasePath string
 )
 
 type loader func(ctx context.Context, r *Registry, name string) (any, error)
@@ -38,6 +41,7 @@ type Registry struct {
 }
 
 func New(cfg *Config) *Registry {
+	BasePath = cfg.BasePath
 	r := &Registry{
 		cfg:      cfg,
 		items:    make(map[string]any),

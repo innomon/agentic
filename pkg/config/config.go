@@ -22,6 +22,8 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	raw.BasePath = filepath.Dir(path)
+
 	return registry.ParseRaw(&raw)
 }
 
