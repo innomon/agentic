@@ -16,6 +16,7 @@ import (
 type ToolHandler func(ctx context.Context, args map[string]any) (any, error)
 
 type ToolBase struct {
+	Type        string           `yaml:"type"`
 	Description string           `yaml:"description"`
 	Parameters  map[string]Param `yaml:"parameters"`
 }

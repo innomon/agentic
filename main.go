@@ -138,7 +138,7 @@ func main() {
 		if *apiFlag {
 			remainingArgs = append(remainingArgs, "api")
 			if cfg.WebUI {
-				remainingArgs = append(remainingArgs, fmt.Sprintf("-webui_address=%s:%d", hostVal, portVal))
+				remainingArgs = append(remainingArgs, fmt.Sprintf("-webui_address=http://%s:%d", hostVal, portVal))
 			}
 		}
 		if cfg.OpenClaw {
