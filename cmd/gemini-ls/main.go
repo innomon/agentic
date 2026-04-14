@@ -35,10 +35,8 @@ func main() {
 	configuredModels := make(map[string][]string) // model_id -> []config_names
 	if err == nil {
 		for name, m := range cfg.Models {
-			if m.Provider == "gemini" {
-				if gc, ok := m.Config.(*registry.GeminiConfig); ok {
-					configuredModels[gc.ModelID] = append(configuredModels[gc.ModelID], name)
-				}
+			if id, ok := m.Config.(interface{ GetModelID() string }); ok {
+				configuredModels[id.GetModelID()] = append(configuredModels[id.GetModelID()], name)
 			}
 		}
 	}

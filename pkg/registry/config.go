@@ -290,10 +290,18 @@ func (c *Config) GetAgent(name string) (*AgentEntry, error) {
 
 func (c *Config) GetModel(name string) (ModelEntry, error) {
 	model, ok := c.Models[name]
-	if !ok {
-		return ModelEntry{}, fmt.Errorf("model %q not found", name)
+	if ok {
+		return model, nil
 	}
-	return model, nil
+
+	// Fallback: look for model_id match
+	for _, m := range c.Models {
+		if id, ok := m.Config.(interface{ GetModelID() string }); ok && id.GetModelID() == name {
+			return m, nil
+		}
+	}
+
+	return ModelEntry{}, fmt.Errorf("model %q not found", name)
 }
 
 func (c *Config) GetTool(name string) (*ToolEntry, error) {

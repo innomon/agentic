@@ -71,7 +71,7 @@ agents:
 
   ProductRecommendationAgent:
     description: Recommends organic farming products based on conversation context
-    model: gemini-flash-lite-latest
+    model: gemini-flash
     instruction: |
       You are an organic farming product recommendation specialist for India.
 

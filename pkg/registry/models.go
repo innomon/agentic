@@ -20,6 +20,10 @@ func (b *ModelBase) IsDefault() bool {
 	return b.Default
 }
 
+func (b *ModelBase) GetModelID() string {
+	return b.ModelID
+}
+
 func (b *ModelBase) Validate() error {
 	if b.Provider == "" {
 		return fmt.Errorf("provider is required")
