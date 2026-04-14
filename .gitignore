@@ -2,6 +2,7 @@
 /agentic
 /clawgate
 /initdb
+/gemini-ls
 *.exe
 *.exe~
 *.dll

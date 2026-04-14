@@ -25,6 +25,10 @@ go build -o agentic .
 # Run web with all sublaunchers
 ./agentic web api webui openclaw
 
+# List available Gemini models and their configuration status
+go build -o gemini-ls ./cmd/gemini-ls/main.go
+./gemini-ls [-v] [-api-key=KEY] [-config=path/to/config.yaml]
+
 # Run tests
 go test ./...
 

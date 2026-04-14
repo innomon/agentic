@@ -92,6 +92,21 @@ The gateway listens on `/ws` by default. Use `-ws-path` to change it.
 
 The standalone `cmd/clawgate` binary is also available for dedicated gateway deployments.
 
+### Gemini Model Listing
+
+List all available Gemini models and check which ones are configured in your YAML:
+
+```bash
+# Build the tool
+go build -o gemini-ls ./cmd/gemini-ls/main.go
+
+# Run (requires GOOGLE_API_KEY)
+./gemini-ls
+
+# Run with verbose output (shows token limits and actions)
+./gemini-ls -v
+```
+
 ### Custom Configuration
 
 Load any YAML config file. You can also enable launchers directly in the YAML file.
