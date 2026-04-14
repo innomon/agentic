@@ -213,7 +213,17 @@ func (r *Registry) GetTools(ctx context.Context, names []string) ([]tool.Tool, e
 func (r *Registry) GetRoot(ctx context.Context) (agent.Agent, error) {
 	name := r.cfg.RootAgent
 	if name == "" {
-		name = "RootAgent"
+		if _, ok := r.cfg.Agents["RootAgent"]; ok {
+			name = "RootAgent"
+		} else if len(r.cfg.Agents) == 1 {
+			for k := range r.cfg.Agents {
+				name = k
+			}
+		} else if len(r.cfg.Agents) > 1 {
+			return nil, fmt.Errorf("root_agent is not specified, but multiple agents are available. Please specify a root_agent in your config.")
+		} else {
+			name = "RootAgent" // Fallback to let Get() return its own error
+		}
 	}
 	return Get[agent.Agent](ctx, r, name)
 }

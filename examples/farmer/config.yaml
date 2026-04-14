@@ -4,6 +4,8 @@
 # Farmer identity is the Google social login email address.
 # Long-term memory persists conversation history across sessions.
 
+root_agent: FarmerAgent
+
 models:
   gemini-flash:
     provider: gemini

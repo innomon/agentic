@@ -396,6 +396,51 @@ func TestGetRoot_CustomName(t *testing.T) {
 	}
 }
 
+func TestGetRoot_SingleAgentFallback(t *testing.T) {
+	agentType := uniqueName(t, "agent-type")
+	cfg := &Config{
+		RootAgent: "",
+		Agents: map[string]AgentEntry{
+			"OnlyAgent": {Name: "OnlyAgent", Type: agentType, Config: &SequentialAgentConfig{}},
+		},
+	}
+	reg := New(cfg)
+	RegisterAgentType(agentType, func(ctx context.Context, name string, cfg *SequentialAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+		return newMockAgent(name), nil
+	})
+
+	a, err := reg.GetRoot(context.Background())
+	if err != nil {
+		t.Fatalf("GetRoot() error: %v", err)
+	}
+	if a.Name() != "OnlyAgent" {
+		t.Errorf("expected OnlyAgent, got %q", a.Name())
+	}
+}
+
+func TestGetRoot_MultipleAgentsError(t *testing.T) {
+	agentType := uniqueName(t, "agent-type")
+	cfg := &Config{
+		RootAgent: "",
+		Agents: map[string]AgentEntry{
+			"Agent1": {Name: "Agent1", Type: agentType, Config: &SequentialAgentConfig{}},
+			"Agent2": {Name: "Agent2", Type: agentType, Config: &SequentialAgentConfig{}},
+		},
+	}
+	reg := New(cfg)
+	RegisterAgentType(agentType, func(ctx context.Context, name string, cfg *SequentialAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+		return newMockAgent(name), nil
+	})
+
+	_, err := reg.GetRoot(context.Background())
+	if err == nil {
+		t.Fatal("expected error when multiple agents are present and no RootAgent is specified")
+	}
+	if !strings.Contains(err.Error(), "multiple agents are available") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestGetRoot_Missing(t *testing.T) {
 	cfg := &Config{RootAgent: "Missing", Agents: map[string]AgentEntry{}}
 	reg := New(cfg)
