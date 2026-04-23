@@ -13,17 +13,14 @@ go build -o agentic .
 # Run with default config (config/config.yaml)
 ./agentic console
 
-# Run with custom config
+# Run with custom config (positional config path)
 ./agentic examples/farmer/config.yaml console
 
-# Run in web UI mode (http://localhost:8080/ui/)
+# Run in web UI mode (defaults to api sublauncher)
 ./agentic web
 
-# Run web with OpenClaw WebSocket gateway
-./agentic web api openclaw
-
-# Run web with all sublaunchers
-./agentic web api webui openclaw
+# Run with flags to enable sublaunchers and set options
+./agentic -webui -openclaw -port 8080 -host localhost
 
 # List available Gemini models and their configuration status
 go build -o gemini-ls ./cmd/gemini-ls/main.go
@@ -35,6 +32,18 @@ go test ./...
 # Tidy dependencies
 go mod tidy
 ```
+
+### Command Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-console` | Enable console launcher | `false` |
+| `-webui` | Enable Web UI launcher | `false` |
+| `-openclaw` | Enable OpenClaw WebSocket gateway | `false` |
+| `-a2a` | Enable A2A launcher | `false` |
+| `-api` | Enable REST API launcher | `true` |
+| `-port` | Port to listen on | `8080` |
+| `-host` | Host address for address calculation | `localhost` |
 
 ### Console Mode File Attachments
 
@@ -85,103 +94,47 @@ root_agent: RootAgent
 
 ```
 agentic/
-├── main.go                      # Entry point
+├── main.go                      # Entry point (universal launcher)
 ├── config/
 │   └── config.yaml              # Default configuration
 ├── examples/
 │   ├── med-fhir/                # Medical FHIR transcription use-case
-│   │   ├── config.yaml
-│   │   ├── pkg/fhir/types.go    # FHIR R5 Go type definitions
-│   │   └── README.md
 │   ├── farmer/                  # Organic farming advisor use-case
-│   │   ├── config.yaml
-│   │   └── README.md
 │   ├── routing/                 # Role-based routing example
-│   │   ├── config.yaml
-│   │   └── README.md
 │   ├── search/                  # Web search agent example
-│   │   ├── config.yaml
-│   │   └── README.md
 │   ├── wasm-sequential/         # WASM orchestrator example
-│   │   ├── config.yaml
-│   │   ├── main.go
-│   │   ├── Makefile
-│   │   └── README.md
-│   ├── prolog-memory/               # Logic-based Prolog knowledge example
-│   │   ├── config.yaml
-│   │   └── README.md
-│   └── ml/                   # Local embedded LLM example
-│       ├── config.yaml
-│       └── README.md
+│   ├── prolog-memory/           # Logic-based Prolog knowledge example
+│   └── ml/                      # Local embedded LLM example
 ├── pkg/
 │   ├── fsread/                  # Filesystem tool (fs_read)
 │   ├── compreg/
 │   │   └── compreg.go           # Global component register (shared map)
 │   ├── config/
-│   │   └── config.go            # Config file loader (thin wrapper)
+│   │   └── config.go            # Config file loader
 │   ├── console/
 │   │   └── console.go           # Custom console with @file attachment syntax
-│   ├── gnogent/                     # Deterministic GnoVM agent (no LLM)
-│   │   ├── storage/
-│   │   │   ├── model.go             # GORM model (AgentSession)
-│   │   │   ├── session_service.go   # GnoVM-backed session.Service (GORM)
-│   │   │   └── memory_service.go    # GnoVM-backed memory.Service (GORM)
+│   ├── gnogent/                 # Deterministic GnoVM agent (no LLM)
+│   ├── gnovm/                   # GnoVM engine and machine wrappers
+│   ├── sandbox/                 # Generic VM sandbox manager
 │   ├── auth/
-│   │   └── verifier.go          # JWT RS256 token verification and middleware
+│   │   └── verifier.go          # JWT RS256 token verification
 │   ├── memory/
 │   │   └── mem2db.go            # Database-backed memory service (GORM)
-│   ├── prologmem/                    # Prolog logic-based memory (ichiban/prolog)
-│   │   ├── prologmem.go             # Core PrologMemory struct (Assert/Query/Retract/Check)
-│   │   ├── service.go               # ADK memory.Service adapter
-│   │   └── tool.go                  # logic_query tool type + prolog memory provider
+│   ├── prologmem/               # Prolog logic-based memory
 │   ├── routing/                 # Role-based routing agent
-│   │   ├── routing.go           # Routing agent type (role→agent mapping)
-│   │   └── tools.go             # UserDB tool type (GORM user profiles)
 │   ├── userdb/
-│   │   └── userdb.go            # User profile database (GORM, JSONB)
-│   ├── ml/                   # Local embedded LLM (pure Go, GGUF)
-│   │   ├── config.go            # MLConfig struct and validation
-│   │   ├── provider.go          # Model provider registration
-│   │   ├── model.go             # ADK model.LLM implementation
-│   │   ├── gguf.go              # GGUF file parser
-│   │   ├── weights.go           # Weight tensor loading and mapping
-│   │   ├── dequant.go           # Quantization (Q4_K, Q8_0, etc.)
-│   │   ├── arch_llama.go        # LLaMA architecture (attention, FFN)
-│   │   ├── arch_ops.go          # Shared transformer ops (RMSNorm, RoPE, etc.)
-│   │   ├── kvcache.go           # KV-cache for autoregressive generation
-│   │   ├── generate.go          # Token generation loop
-│   │   ├── sampler.go           # Sampling strategies (greedy, top-k, top-p)
-│   │   ├── tokenizer.go         # Tokenizer interface and dispatch
-│   │   ├── tokenizer_bpe.go     # BPE tokenizer
-│   │   ├── tokenizer_sp.go      # SentencePiece tokenizer
-│   │   ├── prompt.go            # Chat template formatting
-│   │   └── toolparse.go         # Tool-call extraction from output
+│   │   └── userdb.go            # User profile database (GORM)
+│   ├── ml/                      # Local embedded LLM (pure Go, GGUF)
 │   ├── wasm/                    # WASM extension (wazero runtime)
-│   │   ├── wasm.go              # Wasm agent type (sub-agent host fns)
-│   │   ├── tool.go              # Wasm tool type (per-invocation isolation)
-│   │   ├── policy.go            # Security policy engine (FS sandbox, domain allow-list)
-│   │   ├── abi.go               # Component bridge ABI (alloc/run_tool/free)
-│   │   ├── cache.go             # Compilation cache (wazero disk-backed)
-│   │   ├── oci.go               # OCI registry puller (regclient, digest cache)
-│   │   └── host_net.go          # Guarded HTTP host functions
 │   ├── openclaw/
 │   │   ├── launcher/
-│   │   │   └── launcher.go          # Web sublauncher (integrates into universal launcher)
+│   │   │   └── launcher.go      # OpenClaw sublauncher
 │   └── registry/                # Unified registry (config, components, instances)
-│       ├── registry.go          # Instance cache with generic Get[T]
-│       ├── config.go            # Config types and YAML parsing
-│       ├── compreg.go           # Component type registration and factories
-│       ├── launcher.go          # Launcher config builder (session, memory)
-│       ├── models.go            # Built-in model providers (Gemini, OpenAI)
-│       ├── ollama.go            # Ollama provider (official OpenAI SDK)
-│       ├── agents.go            # Built-in agent types (llm, sequential, etc.)
-│       └── tools.go             # Tool type registration and built-in tools
 ├── cmd/
-│   └── clawgate/
-│       └── main.go              # OpenClaw gateway binary entry point
-├── openai-proxy/                # OpenAI-compatible API proxy
-│   ├── main.go
-│   └── config.yaml
+│   ├── clawgate/
+│   │   └── main.go              # Standalone OpenClaw gateway binary
+│   └── gemini-ls/
+│       └── main.go              # Model listing utility
 ├── go.mod
 ├── go.sum
 ├── AGENTS.md                    # This file
@@ -194,11 +147,11 @@ agentic/
 - Models are created via `google.golang.org/adk/model/gemini`
 - Agents use `google.golang.org/adk/agent/llmagent`
 - Launcher from `google.golang.org/adk/cmd/launcher`
-- Use `universal.NewLauncher()` from `google.golang.org/adk/cmd/launcher/universal` with custom sub-launchers
+- Use `universal.NewLauncher()` with custom sub-launchers
 - Agent functions should accept `(ctx context.Context, m model.LLM)` and return `(agent.Agent, error)`
 - Use `SubAgents` field in `llmagent.Config` for routing to sub-agents
 - ADK-Go auto-injects `transfer_to_agent` tool when SubAgents are declared
-- **Atomic Transfers**: When an agent performs a task and then transfers to a sub-agent (e.g., text extraction followed by FHIR conversion), instruct the agent to call `transfer_to_agent` in the **same response** as its task output. This prevents the pipeline from stalling, especially when the task output is large.
+- **Atomic Transfers**: When an agent performs a task and then transfers to a sub-agent, instruct the agent to call `transfer_to_agent` in the **same response** as its task output.
 - **ADK limitation**: Each agent can only have one parent. Duplicate agent trees if multiple parents need the same sub-agent.
 
 ## Tools Registry
@@ -225,7 +178,7 @@ registry.RegisterToolHandler("my_tool", func(ctx context.Context, args map[strin
 
 #### Filesystem Tool (`fs_read`)
 
-The `fs_read` built-in tool allows agents to read local files for grounding or reference.
+The `fs_read` built-in tool allows agents to read local files.
 
 ```yaml
 tools:
@@ -234,62 +187,53 @@ tools:
     description: Read the FHIR schema
     parameters:
       path: {type: string, required: true}
-
-agents:
-  SpecialistAgent:
-    tools: [schema_reader]
-    instruction: |
-      Use the schema_reader tool to load 'fhir.schema.json' before generating output.
 ```
 
-#### FHIR Optimization Tool (`fhir_get_schema`)
+#### Gemini Built-in Tools
 
-The `fhir_get_schema` tool extracts a specialized subset of the FHIR R5 schema (e.g., just `MedicationRequest` plus its dependencies). This reduces token bloat by avoiding passing the entire 4.2MB schema.
+Agents using Gemini models can use built-in Google services.
 
 ```yaml
 tools:
-  fhir_ctx:
-    type: builtin
-    name: fhir_get_schema
-    description: Fetch resource-specific schema subset
-    parameters:
-      resource_type: {type: string, required: true}
+  web_search:
+    type: gemini
+    tool: google_search
+    description: Search the web using Google
+```
 
-agents:
-  Classifier:
-    tools: [fhir_ctx]
-    instruction: |
-      Use fhir_ctx(resource_type="Composition") to get the grounded schema for discharge summaries.
+#### Sandbox Tool
+
+Execute code in isolated VM environments (e.g., GnoVM).
+
+```yaml
+tools:
+  gno_sandbox:
+    type: sandbox
+    description: Execute Gno code in a sandbox
+    type: gno
+    timeout: 5s
+    memory_limit_mb: 128
 ```
 
 ## UserDB Tools
 
-The `userdb` tool type provides GORM-backed user profile management. Tools share a singleton DB connection per DSN.
+The `userdb` tool type provides GORM-backed user profile management.
 
 ```yaml
 tools:
   get_user_profile:
     type: userdb
     op: get_profile
-    description: Retrieve user profile
-    parameters:
-      user_id: {type: string, required: true}
     db:
       driver: postgres
       dsn: postgres://user:pass@localhost/mydb
-      auto_migrate: true
-    admin_users: [admin1, admin2]
 ```
 
 Operations: `get_profile`, `create_user`, `update_status`, `update_roles`, `update_channels`, `delete_user`.
 
-- Admin role cannot be set via `update_roles`; it is config-only via `admin_users`.
-- `get_profile` returns `{"found": false}` for unknown users (enables anonymous routing).
-- Caller ID for audit is extracted from JWT claims (`auth.ClaimsFromContext`).
-
 ## MCP Toolsets
 
-Agents can connect to external [Model Context Protocol](https://modelcontextprotocol.io/) servers to dynamically discover tools at startup. Unlike YAML-defined tools, MCP toolsets use Streamable HTTP transport to fetch tool schemas from a remote server.
+Agents can connect to external [Model Context Protocol](https://modelcontextprotocol.io/) servers.
 
 ```yaml
 agents:
@@ -297,267 +241,73 @@ agents:
     model: gemini-flash
     mcp_toolsets:
       - endpoint: "${MCP_SERVER_URL:-http://localhost:8082}/mcp"
-    instruction: |
-      You are an assistant with access to external tools.
 ```
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `endpoint` | MCP server URL (Streamable HTTP transport) | Yes |
-
-Endpoints support `${VAR:-default}` environment variable expansion (via `os.Expand`).
-
-MCP toolsets attach to `llmagent.Config.Toolsets` (not `Tools`) and can be combined with regular YAML-defined tools on the same agent.
 
 ## Custom Agent Types
 
-The component registry uses Go generics for type-safe registration. Each component defines its own config struct:
+The component registry uses Go generics for type-safe registration.
 
 ```go
-import "github.com/innomon/agentic/pkg/registry"
-
-type MyAgentConfig struct {
-    registry.AgentBase `yaml:",inline"`
-    CustomField string `yaml:"custom_field"`
-}
-
-func (c *MyAgentConfig) Validate() error { return nil }
-
-func init() {
-    registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
-        return myCustomAgent, nil
-    })
-}
+registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg *MyAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+    return myCustomAgent, nil
+})
 ```
 
 Built-in types:
-- `llm` (default) - Standard LLM agent via `llmagent.New()`
-- `sequential` - Executes sub-agents once in order via `sequentialagent.New()`
-- `parallel` - Executes sub-agents concurrently via `parallelagent.New()`
-- `loop` - Repeatedly executes sub-agents via `loopagent.New()` (use `max_iterations` config)
-- `routing` - Role-based routing agent with user profile lookup and disambiguation
-- `wasm` - WebAssembly agent via wazero runtime with sub-agent host functions
-- `gnogent` - Deterministic GnoVM agent via `agent.New()` (no LLM, state persisted to Postgres)
-
-Specify type in config:
-```yaml
-agents:
-  MyAgent:
-    type: myType
-    description: "..."
-    custom_field: "value"
-
-  MyWorkflow:
-    type: sequential
-    description: "Run agents in order"
-    sub_agents: [Agent1, Agent2]
-
-  MyLoop:
-    type: loop
-    description: "Iterative refinement"
-    max_iterations: 3
-    sub_agents: [RefineAgent]
-
-  MyRouter:
-    type: routing
-    model: gemini-flash
-    admin_users: [admin1]
-    role_routes:
-      admin: AdminAgent
-      user: UserAgent
-      anonymous: PublicAgent
-    tools: [get_user_profile]
-    sub_agents: [AdminAgent, UserAgent, PublicAgent]
-
-  MyWasmAgent:
-    type: wasm
-    description: "Run a WebAssembly module as an agent"
-    module_path: ./plugins/my_agent.wasm
-    sub_agents: [SubAgent1]
-
-  MyDeterministicAgent:
-    type: gnogent
-    description: "Stateful deterministic agent powered by GnoVM"
-    database:
-      dsn: postgres://user:pass@localhost/mydb
-      auto_migrate: true
-    gnovm:
-      source_file: ./gno/agent.gno
-      pkg_path: gno.land/p/agent
-```
+- `llm` (default) - Standard LLM agent
+- `sequential`, `parallel`, `loop` - Workflow orchestrators
+- `routing` - Role-based routing agent
+- `wasm` - WebAssembly agent
+- `gnogent` - Deterministic GnoVM agent
 
 ## Wasm Tools
 
-The `wasm` tool type executes sandboxed WebAssembly modules as ADK tools. Modules are loaded from local files or OCI registries. Each invocation creates a fresh wazero runtime for complete state isolation.
+The `wasm` tool type executes sandboxed WebAssembly modules.
 
 ```yaml
 tools:
   my_wasm_tool:
     type: wasm
-    description: Run a sandboxed WASM tool
     module_path: ./plugins/tool.wasm
     security:
       allowed_paths: [/data/input]
-      allowed_domains: [api.example.com, "*.internal.com"]
-      memory_max_pages: 256
-
-  oci_wasm_tool:
-    type: wasm
-    description: WASM tool from OCI registry
-    oci_ref: ghcr.io/myorg/my-tool:latest
-    cache_dir: /tmp/wasm-cache
-    security:
-      allowed_domains: [api.example.com]
+      allowed_domains: ["*.api.com"]
 ```
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `module_path` | Path to local `.wasm` file | Yes (or `oci_ref`) |
-| `oci_ref` | OCI registry reference | Yes (or `module_path`) |
-| `cache_dir` | Directory for OCI blob cache | No |
-| `security.allowed_paths` | Absolute paths mounted read-only into guest | No |
-| `security.allowed_domains` | Domains allowed for `http_fetch` host function | No |
-| `security.memory_max_pages` | Max wasm memory pages (default: 256 = 16MB) | No |
-
-### Wasm Module ABI
-
-Wasm tool modules must export:
-- `alloc(size i32) -> i32` — allocate a buffer in guest memory
-- `run_tool(input_ptr i32, input_len i32) -> i64` — run the tool; returns packed `(out_ptr << 32 | out_len)`
-- `free(ptr i32, size i32)` (optional) — free guest memory
-
-Host functions available to modules:
-- `env.log_msg(ptr i32, len i32)` — log a message
-- `env.http_fetch(req_ptr i32, req_len i32) -> i64` — guarded HTTP request (JSON in/out, domain-checked)
-
-### Wasm Agent Host Functions
-
-Wasm agents additionally have access to sub-agent host functions:
-- `env.subagent_count() -> i32` — number of sub-agents
-- `env.subagent_name(index i32, buf_ptr i32, buf_cap i32) -> i32` — get sub-agent name
-- `env.run_subagent(index i32) -> i32` — execute a sub-agent
 
 ## Logic Query Tool
 
-The `logic_query` tool type exposes an embedded Prolog interpreter ([ichiban/prolog](https://github.com/ichiban/prolog)) as an ADK tool. Agents can assert facts, run logical queries, and persist knowledge to `.pl` files.
+Exposes an embedded Prolog interpreter as an ADK tool.
 
 ```yaml
 tools:
   logic_query:
     type: logic_query
-    description: Run Prolog logic queries against the knowledge base
     kb_path: ./knowledge.pl
-    timeout_seconds: 5
-    parameters:
-      action:
-        type: string
-        description: "Action: query, assert, retract, check, or save"
-        required: true
-      query:
-        type: string
-        description: "Prolog term or goal"
-        required: true
 ```
 
-| Field | Description | Required |
-|-------|-------------|----------|
-| `kb_path` | Path to `.pl` knowledge base file | Yes |
-| `timeout_seconds` | Query timeout in seconds (default: 5) | No |
-
-Actions:
-- `assert` — add a fact: `{"action": "assert", "query": "mem_fact(agent1, name, alice)"}`
-- `retract` — remove a fact: `{"action": "retract", "query": "mem_fact(agent1, name, alice)"}`
-- `query` — find solutions: `{"action": "query", "query": "mem_fact(agent1, Key, Value)."}`
-- `check` — true/false test: `{"action": "check", "query": "mem_fact(agent1, name, alice)."}`
-- `save` — persist KB to disk: `{"action": "save", "query": "true"}`
-
-Standard predicates: `mem_fact/3`, `mem_rel/3`, `mem_context/3`, `agent_rule/3`.
-
-Safety: All queries are wrapped with a context timeout. Input is sanitized to reject `consult`, `use_module`, `halt`, and other dangerous predicates.
-
-## Custom Model Providers
-
-Register model providers with custom config schemas:
-
-```go
-import "github.com/innomon/agentic/pkg/registry"
-
-type MyProviderConfig struct {
-    registry.ModelBase `yaml:",inline"`
-    Endpoint string `yaml:"endpoint"`
-}
-
-func init() {
-    registry.RegisterModelProvider("myprovider", func(ctx context.Context, cfg *MyProviderConfig) (model.LLM, error) {
-        return createModel(cfg.Endpoint, cfg.ModelID), nil
-    })
-}
-```
+Actions: `query`, `assert`, `retract`, `check`, `save`.
 
 ## Session Configuration
 
 ```yaml
 session:
-  provider: database
+  provider: database # inmemory, database, gnogent, vertexai
   driver: postgres
   dsn: postgres://user:pass@localhost/mydb
-  auto_migrate: true
-```
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, `gnogent`, or `vertexai` | No |
-| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
-| `dsn` | Database connection string | Yes (for `database`) |
-| `auto_migrate` | Auto-create/update schema on startup | No |
-| `project` | GCP project ID | Yes (for `vertexai`) |
-| `location` | GCP region | Yes (for `vertexai`) |
-| `reasoning_engine` | Reasoning Engine resource name | Yes (for `vertexai`) |
-
-```yaml
-# Gnogent provider (Postgres-backed with GnoVM session tables):
-session:
-  provider: gnogent
-  dsn: postgres://user:pass@localhost/mydb
-  auto_migrate: true
 ```
 
 ## Memory Configuration
 
 ```yaml
 memory:
-  provider: database
+  provider: database # inmemory, database, gnogent, prolog
   driver: postgres
   dsn: postgres://user:pass@localhost/mydb
-  auto_migrate: true
-```
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `provider` | `inmemory` (default), `database`, `gnogent`, or `prolog` | No |
-| `driver` | Database driver (`postgres`, `sqlite`) | Yes (for `database`) |
-| `dsn` | Database connection string | Yes (for `database`) |
-| `auto_migrate` | Auto-create/update schema on startup | No |
-| `kb_path` | Path to `.pl` knowledge base file | Yes (for `prolog`) |
-
-```yaml
-# Gnogent provider (Postgres-backed with GnoVM memory tables):
-memory:
-  provider: gnogent
-  dsn: postgres://user:pass@localhost/mydb
-  auto_migrate: true
-```
-
-```yaml
-# Prolog provider (logic-based memory with file persistence):
-memory:
-  provider: prolog
-  kb_path: ./knowledge.pl
 ```
 
 ## Auth Configuration
 
-JWT authentication protects API endpoints when configured. Tokens use RS256 signing.
+JWT authentication protects API endpoints. Tokens use RS256 signing.
 
 ```yaml
 auth:
@@ -567,81 +317,25 @@ auth:
     audience: agentic
 ```
 
-| Field | Description | Required |
-|-------|-------------|----------|
-| `public_key_path` | Path to RSA public key PEM file | Yes |
-| `issuer` | Expected JWT issuer claim | No |
-| `audience` | Expected JWT audience claim | No |
-
-Generate the key pair:
-
-```bash
-openssl genrsa -out secrets/jwt_private.pem 2048
-openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
-```
-
-Access claims in ADK callbacks:
-
-```go
-claims := auth.ClaimsFromContext(ctx)
-if claims != nil {
-    log.Printf("user_id=%s, channel=%s", claims.UserID, claims.Channel)
-}
-```
-
 ## Environment Variables
 
-- `GOOGLE_API_KEY` - Required for Gemini model access (if not set in config)
-- `OPENAI_API_KEY` - Required for OpenAI model access (if not set in config)
-- `BYPASS_AUTH` - Set to `true` to skip JWT verification for localhost requests (dev only)
-- `ML_BACKEND` - Override ML compute backend (default: CPU; `xla` reserved for future use)
-- `ML_NO_AUTO_INSTALL` - Set to `true` to disable automatic XLA plugin download (future use)
+- `GOOGLE_API_KEY` - Required for Gemini
+- `OPENAI_API_KEY` - Required for OpenAI
+- `BYPASS_AUTH` - Set to `true` to skip JWT verification on localhost
 
 ## Model Configuration
 
 ```yaml
 models:
   my-model:
-    provider: gemini
+    provider: gemini # gemini, openai, ollama, ml
     model_id: gemini-2.0-flash
-    default: true
     api_key: ${API_KEY}
-    backend: vertexai
-    project: my-gcp-project
-    location: us-central1
-
-  ollama-llama:
-    provider: ollama
-    model_id: llama3.2
-    base_url: http://localhost:11434/v1
 ```
 
-### Ollama Provider
+### ML Provider (Local GGUF)
 
-The `ollama` provider uses the official OpenAI Go SDK (`github.com/openai/openai-go/v3`) with a custom base URL to connect to Ollama's OpenAI-compatible API.
-
-Required fields:
-- `provider: ollama`
-- `model_id`: The model name as shown in `ollama list`
-- `base_url`: The Ollama server URL with `/v1` suffix (e.g., `http://localhost:11434/v1`)
-
-### ML Provider
-
-The `ml` provider runs GGUF-quantized models locally in pure Go — no external APIs, no GPU required. It embeds a GGUF loader and transformer inference engine directly into the binary.
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `provider` | Must be `ml` | Yes |
-| `model_id` | A logical name for the model (e.g., `smollm2-135m`) | Yes |
-| `model_path` | Path to the `.gguf` model file | Yes |
-| `context_length` | Max context window in tokens (default: from GGUF metadata) | No |
-| `threads` | CPU threads for inference (default: `runtime.NumCPU()`) | No |
-| `memory_budget_mb` | Memory limit in MB (default: unlimited) | No |
-| `tokenizer_path` | Override tokenizer file path (default: embedded in GGUF) | No |
-| `backend` | Compute backend (default: CPU; `xla` reserved for future use) | No |
-| `backend_config` | Backend-specific configuration string | No |
-
-Minimal example:
+Runs GGUF-quantized models locally in pure Go.
 
 ```yaml
 models:
@@ -649,63 +343,20 @@ models:
     provider: ml
     model_id: smollm2-135m
     model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
-    default: true
-```
-
-Full example with all options:
-
-```yaml
-models:
-  local-llm:
-    provider: ml
-    model_id: smollm2-135m
-    model_path: ./models/SmolLM2-135M-Instruct-Q4_K_M.gguf
-    default: true
-    context_length: 2048
     threads: 4
-    memory_budget_mb: 512
-    tokenizer_path: ./models/tokenizer.json
 ```
 
-Supported architectures:
-- **LLaMA** family (LLaMA 2/3, Mistral, SmolLM, CodeLlama, TinyLlama, and other LLaMA-derived models).
-- **Granite** family (Granite 4.0 dense and hybrid models). Hybrid models mix attention layers with Mamba2 SSM layers for efficient long-context inference.
-
-Environment variables (for future XLA backend):
-- `ML_BACKEND` — Override the compute backend (default: CPU)
-- `ML_NO_AUTO_INSTALL` — Set to `true` to disable automatic XLA plugin download
-
-**Limitations:** ML runs inference in pure Go on the CPU. Best suited for small models up to ~3B parameters. For larger models, use the Gemini, OpenAI, or Ollama providers.
+Supported architectures: **LLaMA** family and **Granite** family (dense and hybrid).
 
 ## OpenClaw Gateway (clawgate)
 
-The `clawgate` binary (`cmd/clawgate/main.go`) is the OpenClaw WebSocket gateway that routes client conversations to ADK agents.
-
-### How Agent Routing Works
-
-The gateway uses an `AgentBridge` (`internal/openclaw/server/agentbridge.go`) to connect the OpenClaw WebSocket protocol to the ADK runner:
-
-1. **Config → Registry → LauncherConfig**: The YAML config is loaded, the registry resolves all agents/models/tools, and `BuildLauncherConfig()` produces a `launcher.Config` with the root agent and session/memory services.
-
-2. **LauncherConfig → AgentBridge**: `NewAgentBridge(launcherConfig)` creates an ADK `runner.Runner` from the launcher config.
-
-3. **AgentBridge → Server**: `srv.SetAgentHandler(bridge.Handler())` registers the bridge as the handler for all `agent.*` RPC methods via prefix dispatch.
-
-4. **Client interaction**:
-   - `agent.session.create` → creates an ADK session, returns `sessionId`
-   - `agent.send` → sends user text to the agent, streams `agent.text` events back over WebSocket, sends final `res` frame on completion
-
-### Running
+OpenClaw WebSocket gateway routes client conversations to ADK agents. It can be run as a standalone binary or as a sublauncher within the main `agentic` process.
 
 ```bash
-# Build
+# Standalone
 go build -o clawgate ./cmd/clawgate/
-
-# Run with default config
 ./clawgate
 
-# Run with custom config
-./clawgate examples/openclaw/config.yaml
+# Integrated
+./agentic -openclaw web
 ```
-
-See `docs/CLAW_GATE_SPECS.md` for the full protocol specification and agent method schemas.
