@@ -85,7 +85,8 @@ model, _ := ml.NewMLModel(cfg)
 The current implementation is pure Go, which ensures maximum compatibility across platforms (including WASM/WASI). 
 
 ### Recent Enhancements:
-- **Parallel Operations:** `MatVecMul` and `MatMul` utilize Go concurrency to leverage multi-core CPUs.
+- **Parallel Operations:** `MatVecMul` and `MatMul` in `arch_ops.go` utilize Go concurrency with a configurable worker pool to leverage multi-core CPUs.
+- **Configurable Parallelism:** Users can control the number of CPU threads used for inference via the `threads` parameter in the model configuration, which is applied during model initialization.
 - **GQA Support:** Efficient Grouped-Query Attention implementation.
 - **Hybrid Architecture:** Support for Mamba2 SSM layers alongside Attention.
 
