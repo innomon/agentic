@@ -39,6 +39,11 @@ func (m *MLModel) Init() error {
 func (m *MLModel) doInit() error {
 	path := m.cfg.ModelPath
 
+	// Set threads for parallel ops if specified.
+	if m.cfg.Threads > 0 {
+		SetThreads(m.cfg.Threads)
+	}
+
 	info, err := ParseGGUF(path)
 	if err != nil {
 		return fmt.Errorf("parse GGUF metadata: %w", err)

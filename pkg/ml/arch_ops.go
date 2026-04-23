@@ -1,22 +1,76 @@
 package ml
 
-import "math"
+import (
+	"math"
+	"runtime"
+	"sync"
+)
+
+var (
+	numThreads = runtime.NumCPU()
+)
+
+// SetThreads sets the number of threads to use for parallel operations.
+// If n <= 0, it defaults to runtime.NumCPU().
+func SetThreads(n int) {
+	if n <= 0 {
+		numThreads = runtime.NumCPU()
+	} else {
+		numThreads = n
+	}
+}
 
 // MatMul computes C = A × B where A is [m,k] (row-major) and B is [k,n] (row-major).
 // Returns C of shape [m,n].
 func MatMul(a, b []float32, m, k, n int) []float32 {
 	c := make([]float32, m*n)
-	for i := 0; i < m; i++ {
-		aRow := a[i*k : i*k+k]
-		cRow := c[i*n : i*n+n]
-		for p := 0; p < k; p++ {
-			ap := aRow[p]
-			bRow := b[p*n : p*n+n]
-			for j := 0; j < n; j++ {
-				cRow[j] += ap * bRow[j]
+	nThreads := numThreads
+	if m < nThreads {
+		nThreads = m
+	}
+	if nThreads <= 1 {
+		for i := 0; i < m; i++ {
+			aRow := a[i*k : i*k+k]
+			cRow := c[i*n : i*n+n]
+			for p := 0; p < k; p++ {
+				ap := aRow[p]
+				bRow := b[p*n : p*n+n]
+				for j := 0; j < n; j++ {
+					cRow[j] += ap * bRow[j]
+				}
 			}
 		}
+		return c
 	}
+
+	var wg sync.WaitGroup
+	chunkSize := (m + nThreads - 1) / nThreads
+	for t := 0; t < nThreads; t++ {
+		start := t * chunkSize
+		end := start + chunkSize
+		if start >= m {
+			break
+		}
+		if end > m {
+			end = m
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for i := s; i < e; i++ {
+				aRow := a[i*k : i*k+k]
+				cRow := c[i*n : i*n+n]
+				for p := 0; p < k; p++ {
+					ap := aRow[p]
+					bRow := b[p*n : p*n+n]
+					for j := 0; j < n; j++ {
+						cRow[j] += ap * bRow[j]
+					}
+				}
+			}
+		}(start, end)
+	}
+	wg.Wait()
 	return c
 }
 
@@ -24,14 +78,48 @@ func MatMul(a, b []float32, m, k, n int) []float32 {
 // Returns y of length m.
 func MatVecMul(a, x []float32, m, k int) []float32 {
 	y := make([]float32, m)
-	for i := 0; i < m; i++ {
-		row := a[i*k : i*k+k]
-		var sum float32
-		for j := 0; j < k; j++ {
-			sum += row[j] * x[j]
-		}
-		y[i] = sum
+	nThreads := numThreads
+	if m < nThreads {
+		nThreads = m
 	}
+	// Heuristic: don't parallelize if work is too small.
+	if nThreads <= 1 || m*k < 1024 {
+		for i := 0; i < m; i++ {
+			row := a[i*k : i*k+k]
+			var sum float32
+			for j := 0; j < k; j++ {
+				sum += row[j] * x[j]
+			}
+			y[i] = sum
+		}
+		return y
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (m + nThreads - 1) / nThreads
+	for t := 0; t < nThreads; t++ {
+		start := t * chunkSize
+		end := start + chunkSize
+		if start >= m {
+			break
+		}
+		if end > m {
+			end = m
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for i := s; i < e; i++ {
+				row := a[i*k : i*k+k]
+				var sum float32
+				for j := 0; j < k; j++ {
+					sum += row[j] * x[j]
+				}
+				y[i] = sum
+			}
+		}(start, end)
+	}
+	wg.Wait()
 	return y
 }
 
