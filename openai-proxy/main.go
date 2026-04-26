@@ -14,7 +14,14 @@ import (
 	"os"
 	"strings"
 	"time"
+	"iter"
 
+	"github.com/innomon/agentic/pkg/config"
+	"github.com/innomon/agentic/pkg/registry"
+	"google.golang.org/adk/agent"
+	"google.golang.org/adk/runner"
+	"google.golang.org/adk/session"
+	"google.golang.org/genai"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,14 +31,16 @@ type Config struct {
 }
 
 type ProxyConfig struct {
-	Listen   string       `yaml:"listen"`
-	ADK      ADKConfig    `yaml:"adk"`
-	Defaults DefaultsConf `yaml:"defaults"`
+	Listen   string               `yaml:"listen"`
+	ADK      *ADKConfig           `yaml:"adk,omitempty"`
+	Apps     map[string]ADKConfig `yaml:"apps,omitempty"`
+	Defaults DefaultsConf         `yaml:"defaults"`
 }
 
 type ADKConfig struct {
-	Endpoint string `yaml:"endpoint"`
-	AppName  string `yaml:"app_name"`
+	Endpoint   string `yaml:"endpoint"`
+	AppName    string `yaml:"app_name"`
+	ConfigPath string `yaml:"config_path"`
 }
 
 type DefaultsConf struct {
@@ -166,14 +175,14 @@ type ADKSessionResponse struct {
 }
 
 type ADKEvent struct {
-	ID           string          `json:"id"`
-	Time         int64           `json:"time"`
-	Author       string          `json:"author"`
+	ID           string           `json:"id"`
+	Time         int64            `json:"time"`
+	Author       string           `json:"author"`
 	Content      *ADKEventContent `json:"content,omitempty"`
-	ErrorCode    string          `json:"errorCode,omitempty"`
-	ErrorMessage string          `json:"errorMessage,omitempty"`
-	Partial      bool            `json:"partial,omitempty"`
-	TurnComplete bool            `json:"turnComplete,omitempty"`
+	ErrorCode    string           `json:"errorCode,omitempty"`
+	ErrorMessage string           `json:"errorMessage,omitempty"`
+	Partial      bool             `json:"partial,omitempty"`
+	TurnComplete bool             `json:"turnComplete,omitempty"`
 }
 
 type ADKEventContent struct {
@@ -186,19 +195,109 @@ type ADKEventContent struct {
 type Server struct {
 	config *Config
 	client *http.Client
+
+	// Multiple apps
+	remoteApps     map[string]ADKConfig
+	localRunners   map[string]*runner.Runner
+	sessionService session.Service
 }
 
 func NewServer(config *Config) *Server {
-	return &Server{
-		config: config,
-		client: &http.Client{Timeout: 5 * time.Minute},
+	s := &Server{
+		config:       config,
+		client:       &http.Client{Timeout: 5 * time.Minute},
+		remoteApps:   make(map[string]ADKConfig),
+		localRunners: make(map[string]*runner.Runner),
+	}
+
+	s.initApps()
+
+	return s
+}
+
+func (s *Server) initApps() {
+	ctx := context.Background()
+
+	// Collect all apps from Apps map and ADK block
+	apps := make(map[string]ADKConfig)
+	if s.config.Proxy.Apps != nil {
+		for k, v := range s.config.Proxy.Apps {
+			apps[k] = v
+		}
+	}
+	if s.config.Proxy.ADK != nil {
+		name := s.config.Proxy.ADK.AppName
+		if name == "" {
+			name = "default"
+		}
+		if _, ok := apps[name]; !ok {
+			apps[name] = *s.config.Proxy.ADK
+		}
+	}
+
+	for appID, adkCfg := range apps {
+		if adkCfg.Endpoint == "local" {
+			if err := s.initLocalApp(ctx, adkCfg); err != nil {
+				log.Printf("Error initializing local app %s: %v", appID, err)
+			}
+		} else if adkCfg.Endpoint != "" {
+			s.remoteApps[appID] = adkCfg
+			log.Printf("Registered remote app: %s -> %s", appID, adkCfg.Endpoint)
+		}
 	}
 }
 
-func (s *Server) createSession(ctx context.Context, userID string) (string, error) {
+func (s *Server) initLocalApp(ctx context.Context, adkCfg ADKConfig) error {
+	cfgPath := adkCfg.ConfigPath
+	if cfgPath == "" {
+		return fmt.Errorf("config_path is required for local endpoint")
+	}
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return fmt.Errorf("load local adk config %s: %w", cfgPath, err)
+	}
+
+	reg := registry.New(cfg)
+
+	lc, err := reg.BuildLauncherConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("build launcher config for %s: %w", cfgPath, err)
+	}
+
+	// For simplicity, we use one session service for all local apps if multiple are defined
+	// but we could also have a session service per app.
+	if s.sessionService == nil {
+		s.sessionService = lc.SessionService
+	}
+
+	for agentName := range cfg.Agents {
+		ag, err := registry.Get[agent.Agent](ctx, reg, agentName)
+		if err != nil {
+			log.Printf("Warning: failed to load agent %s from %s: %v", agentName, cfgPath, err)
+			continue
+		}
+
+		r, err := runner.New(runner.Config{
+			AppName:        agentName,
+			Agent:          ag,
+			SessionService: s.sessionService,
+		})
+		if err != nil {
+			log.Printf("Warning: failed to create runner for agent %s: %v", agentName, err)
+			continue
+		}
+		s.localRunners[agentName] = r
+		log.Printf("Registered local agent: %s", agentName)
+	}
+
+	return nil
+}
+
+func (s *Server) createSession(ctx context.Context, adk ADKConfig, userID string) (string, error) {
 	url := fmt.Sprintf("%s/api/apps/%s/users/%s/sessions",
-		s.config.Proxy.ADK.Endpoint,
-		s.config.Proxy.ADK.AppName,
+		adk.Endpoint,
+		adk.AppName,
 		userID,
 	)
 
@@ -305,9 +404,9 @@ func (s *Server) convertImageURL(url string) *ADKPart {
 	return nil
 }
 
-func (s *Server) runADK(ctx context.Context, userID, sessionID string, content ADKContent, streaming bool) (*http.Response, error) {
+func (s *Server) runADK(ctx context.Context, adk ADKConfig, userID, sessionID string, content ADKContent, streaming bool) (*http.Response, error) {
 	adkReq := ADKRunRequest{
-		AppName:    s.config.Proxy.ADK.AppName,
+		AppName:    adk.AppName,
 		UserID:     userID,
 		SessionID:  sessionID,
 		Streaming:  streaming,
@@ -319,7 +418,7 @@ func (s *Server) runADK(ctx context.Context, userID, sessionID string, content A
 		return nil, fmt.Errorf("marshal adk request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/run_sse", s.config.Proxy.ADK.Endpoint)
+	url := fmt.Sprintf("%s/api/run_sse", adk.Endpoint)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create run request: %w", err)
@@ -351,7 +450,23 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		userID = "openai-proxy-user"
 	}
 
-	sessionID, err := s.createSession(r.Context(), userID)
+	// Check if local execution
+	if lr, ok := s.localRunners[req.Model]; ok {
+		s.handleLocalChatCompletions(w, r, lr, req, userID)
+		return
+	}
+
+	// Check if remote execution
+	if adk, ok := s.remoteApps[req.Model]; ok {
+		s.handleRemoteChatCompletions(w, r, adk, req, userID)
+		return
+	}
+
+	s.writeError(w, http.StatusNotFound, "model_not_found", fmt.Sprintf("Model %s not found", req.Model))
+}
+
+func (s *Server) handleRemoteChatCompletions(w http.ResponseWriter, r *http.Request, adk ADKConfig, req ChatCompletionRequest, userID string) {
+	sessionID, err := s.createSession(r.Context(), adk, userID)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "session_error", fmt.Sprintf("Failed to create session: %v", err))
 		return
@@ -363,7 +478,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.runADK(r.Context(), userID, sessionID, content, req.Stream)
+	resp, err := s.runADK(r.Context(), adk, userID, sessionID, content, req.Stream)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "adk_error", fmt.Sprintf("Failed to run ADK: %v", err))
 		return
@@ -385,7 +500,113 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, id, model string, streamOpts *StreamOptions) {
+func (s *Server) handleLocalChatCompletions(w http.ResponseWriter, r *http.Request, lr *runner.Runner, req ChatCompletionRequest, userID string) {
+	ctx := r.Context()
+
+	if s.sessionService == nil {
+		s.writeError(w, http.StatusInternalServerError, "session_error", "Local session service not initialized")
+		return
+	}
+
+	sessionResp, err := s.sessionService.Create(ctx, &session.CreateRequest{
+		AppName: req.Model,
+		UserID:  userID,
+	})
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "session_error", fmt.Sprintf("Failed to create local session: %v", err))
+		return
+	}
+	sessionID := sessionResp.Session.ID()
+
+	userMsg, err := s.convertToGenaiContent(req.Messages)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "conversion_error", fmt.Sprintf("Failed to convert messages for local runner: %v", err))
+		return
+	}
+
+	id := fmt.Sprintf("chatcmpl-%d", rand.Intn(999999999))
+
+	streamingMode := agent.StreamingModeNone
+	if req.Stream {
+		streamingMode = agent.StreamingModeSSE
+	}
+
+	events := lr.Run(ctx, userID, sessionID, userMsg, agent.RunConfig{
+		StreamingMode: streamingMode,
+	})
+
+	if req.Stream {
+		s.handleLocalStreamingResponse(w, events, id, req.Model, req.StreamOptions)
+	} else {
+		s.handleLocalNonStreamingResponse(w, events, id, req.Model)
+	}
+}
+
+func (s *Server) convertToGenaiContent(messages []Message) (*genai.Content, error) {
+	var parts []*genai.Part
+
+	for _, msg := range messages {
+		var prefix string
+		switch msg.Role {
+		case "system":
+			prefix = "[System]: "
+		case "user":
+			prefix = ""
+		case "assistant":
+			prefix = "[Assistant]: "
+		case "tool":
+			prefix = fmt.Sprintf("[Tool %s]: ", msg.Name)
+		default:
+			prefix = fmt.Sprintf("[%s]: ", msg.Role)
+		}
+
+		switch content := msg.Content.(type) {
+		case string:
+			parts = append(parts, genai.NewPartFromText(prefix+content))
+
+		case []any:
+			for _, c := range content {
+				data, ok := c.(map[string]any)
+				if !ok {
+					continue
+				}
+				switch data["type"] {
+				case "text":
+					if text, ok := data["text"].(string); ok {
+						parts = append(parts, genai.NewPartFromText(prefix+text))
+					}
+				case "image_url":
+					if urlData, ok := data["image_url"].(map[string]any); ok {
+						if url, ok := urlData["url"].(string); ok {
+							if strings.HasPrefix(url, "data:") {
+								uParts := strings.SplitN(url, ",", 2)
+								if len(uParts) == 2 {
+									mimeType := "image/png"
+									if strings.Contains(uParts[0], "image/jpeg") {
+										mimeType = "image/jpeg"
+									}
+									parts = append(parts, &genai.Part{
+										InlineData: &genai.Blob{
+											MIMEType: mimeType,
+											Data:     []byte(uParts[1]),
+										},
+									})
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return &genai.Content{
+		Role:  genai.RoleUser,
+		Parts: parts,
+	}, nil
+}
+
+func (s *Server) handleLocalStreamingResponse(w http.ResponseWriter, events iter.Seq2[*session.Event, error], id, modelName string, streamOpts *StreamOptions) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -397,40 +618,24 @@ func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, 
 		return
 	}
 
-	scanner := bufio.NewScanner(body)
 	var fullContent strings.Builder
 	sentRole := false
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "" {
-			continue
-		}
-
-		var event ADKEvent
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			continue
-		}
-
-		if event.ErrorCode != "" {
-			chunk := s.createErrorChunk(id, model, event.ErrorMessage)
+	for event, err := range events {
+		if err != nil {
+			chunk := s.createErrorChunk(id, modelName, err.Error())
 			s.writeSSEChunk(w, flusher, chunk)
-			continue
+			break
 		}
 
 		if event.Content == nil || len(event.Content.Parts) == 0 {
-			if event.TurnComplete {
+			if event.IsFinalResponse() {
 				finishReason := "stop"
 				chunk := ChatCompletionChunk{
 					ID:                id,
 					Object:            "chat.completion.chunk",
 					Created:           time.Now().Unix(),
-					Model:             model,
+					Model:             modelName,
 					SystemFingerprint: "fp_adk",
 					Choices: []ChunkChoice{{
 						Index:        0,
@@ -464,7 +669,7 @@ func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, 
 				ID:                id,
 				Object:            "chat.completion.chunk",
 				Created:           time.Now().Unix(),
-				Model:             model,
+				Model:             modelName,
 				SystemFingerprint: "fp_adk",
 				Choices: []ChunkChoice{{
 					Index: 0,
@@ -482,7 +687,7 @@ func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, 
 			ID:                id,
 			Object:            "chat.completion.chunk",
 			Created:           time.Now().Unix(),
-			Model:             model,
+			Model:             modelName,
 			SystemFingerprint: "fp_adk",
 			Choices:           []ChunkChoice{},
 			Usage:             &usage,
@@ -494,7 +699,159 @@ func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, 
 	flusher.Flush()
 }
 
-func (s *Server) handleNonStreamingResponse(w http.ResponseWriter, body io.Reader, id, model string) {
+func (s *Server) handleLocalNonStreamingResponse(w http.ResponseWriter, events iter.Seq2[*session.Event, error], id, modelName string) {
+	var fullContent strings.Builder
+
+	for event, err := range events {
+		if err != nil {
+			s.writeError(w, http.StatusInternalServerError, "adk_error", err.Error())
+			return
+		}
+
+		if event.Author == "user" {
+			continue
+		}
+
+		if event.Content != nil {
+			for _, part := range event.Content.Parts {
+				fullContent.WriteString(part.Text)
+			}
+		}
+	}
+
+	finishReason := "stop"
+	response := ChatCompletion{
+		ID:                id,
+		Object:            "chat.completion",
+		Created:           time.Now().Unix(),
+		Model:             modelName,
+		SystemFingerprint: "fp_adk",
+		Choices: []Choice{{
+			Index: 0,
+			Message: Message{
+				Role:    "assistant",
+				Content: fullContent.String(),
+			},
+			FinishReason: &finishReason,
+		}},
+		Usage: s.estimateUsage(fullContent.String()),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleStreamingResponse(w http.ResponseWriter, body io.Reader, id, modelName string, streamOpts *StreamOptions) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		s.writeError(w, http.StatusInternalServerError, "streaming_error", "Streaming not supported")
+		return
+	}
+
+	scanner := bufio.NewScanner(body)
+	var fullContent strings.Builder
+	sentRole := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "" {
+			continue
+		}
+
+		var event ADKEvent
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			continue
+		}
+
+		if event.ErrorCode != "" {
+			chunk := s.createErrorChunk(id, modelName, event.ErrorMessage)
+			s.writeSSEChunk(w, flusher, chunk)
+			continue
+		}
+
+		if event.Content == nil || len(event.Content.Parts) == 0 {
+			if event.TurnComplete {
+				finishReason := "stop"
+				chunk := ChatCompletionChunk{
+					ID:                id,
+					Object:            "chat.completion.chunk",
+					Created:           time.Now().Unix(),
+					Model:             modelName,
+					SystemFingerprint: "fp_adk",
+					Choices: []ChunkChoice{{
+						Index:        0,
+						Delta:        Message{},
+						FinishReason: &finishReason,
+					}},
+				}
+				s.writeSSEChunk(w, flusher, chunk)
+			}
+			continue
+		}
+
+		if event.Author == "user" {
+			continue
+		}
+
+		for _, part := range event.Content.Parts {
+			if part.Text == "" {
+				continue
+			}
+
+			delta := Message{Content: part.Text}
+			if !sentRole {
+				delta.Role = "assistant"
+				sentRole = true
+			}
+
+			fullContent.WriteString(part.Text)
+
+			chunk := ChatCompletionChunk{
+				ID:                id,
+				Object:            "chat.completion.chunk",
+				Created:           time.Now().Unix(),
+				Model:             modelName,
+				SystemFingerprint: "fp_adk",
+				Choices: []ChunkChoice{{
+					Index: 0,
+					Delta: delta,
+				}},
+			}
+
+			s.writeSSEChunk(w, flusher, chunk)
+		}
+	}
+
+	if streamOpts != nil && streamOpts.IncludeUsage {
+		usage := s.estimateUsage(fullContent.String())
+		chunk := ChatCompletionChunk{
+			ID:                id,
+			Object:            "chat.completion.chunk",
+			Created:           time.Now().Unix(),
+			Model:             modelName,
+			SystemFingerprint: "fp_adk",
+			Choices:           []ChunkChoice{},
+			Usage:             &usage,
+		}
+		s.writeSSEChunk(w, flusher, chunk)
+	}
+
+	fmt.Fprintf(w, "data: [DONE]\n\n")
+	flusher.Flush()
+}
+
+func (s *Server) handleNonStreamingResponse(w http.ResponseWriter, body io.Reader, id, modelName string) {
 	scanner := bufio.NewScanner(body)
 	var fullContent strings.Builder
 
@@ -535,7 +892,7 @@ func (s *Server) handleNonStreamingResponse(w http.ResponseWriter, body io.Reade
 		ID:                id,
 		Object:            "chat.completion",
 		Created:           time.Now().Unix(),
-		Model:             model,
+		Model:             modelName,
 		SystemFingerprint: "fp_adk",
 		Choices: []Choice{{
 			Index: 0,
@@ -553,12 +910,12 @@ func (s *Server) handleNonStreamingResponse(w http.ResponseWriter, body io.Reade
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Server) createErrorChunk(id, model, message string) ChatCompletionChunk {
+func (s *Server) createErrorChunk(id, modelName, message string) ChatCompletionChunk {
 	return ChatCompletionChunk{
 		ID:                id,
 		Object:            "chat.completion.chunk",
 		Created:           time.Now().Unix(),
-		Model:             model,
+		Model:             modelName,
 		SystemFingerprint: "fp_adk",
 		Choices: []ChunkChoice{{
 			Index: 0,
@@ -588,16 +945,31 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var models []map[string]any
+
+	// Add local agents
+	for agentName := range s.localRunners {
+		models = append(models, map[string]any{
+			"id":       agentName,
+			"object":   "model",
+			"created":  time.Now().Unix(),
+			"owned_by": "local",
+		})
+	}
+
+	// Add remote apps
+	for appID := range s.remoteApps {
+		models = append(models, map[string]any{
+			"id":       appID,
+			"object":   "model",
+			"created":  time.Now().Unix(),
+			"owned_by": "adk",
+		})
+	}
+
 	response := map[string]any{
 		"object": "list",
-		"data": []map[string]any{
-			{
-				"id":       s.config.Proxy.ADK.AppName,
-				"object":   "model",
-				"created":  time.Now().Unix(),
-				"owned_by": "adk",
-			},
-		},
+		"data":   models,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -639,12 +1011,6 @@ func loadConfig(path string) (*Config, error) {
 	if config.Proxy.Listen == "" {
 		config.Proxy.Listen = ":9080"
 	}
-	if config.Proxy.ADK.Endpoint == "" {
-		config.Proxy.ADK.Endpoint = "http://localhost:8080"
-	}
-	if config.Proxy.ADK.AppName == "" {
-		config.Proxy.ADK.AppName = "Agentic"
-	}
 	if config.Proxy.Defaults.UserID == "" {
 		config.Proxy.Defaults.UserID = "openai-proxy-user"
 	}
@@ -662,7 +1028,7 @@ func main() {
 			config = &Config{
 				Proxy: ProxyConfig{
 					Listen: ":9080",
-					ADK: ADKConfig{
+					ADK: &ADKConfig{
 						Endpoint: "http://localhost:8080",
 						AppName:  "Agentic",
 					},
@@ -688,8 +1054,6 @@ func main() {
 	})
 
 	log.Printf("Starting OpenAI Proxy on %s", config.Proxy.Listen)
-	log.Printf("  ADK Endpoint: %s", config.Proxy.ADK.Endpoint)
-	log.Printf("  App Name: %s", config.Proxy.ADK.AppName)
 	log.Printf("  OpenAI API: http://localhost%s/v1/", config.Proxy.Listen)
 
 	if err := http.ListenAndServe(config.Proxy.Listen, mux); err != nil {

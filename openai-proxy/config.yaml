@@ -7,10 +7,12 @@ proxy:
 
   # ADK backend configuration
   adk:
-    # Base URL of the ADK server
+    # Base URL of the ADK server OR "local" to run agents in-process
     endpoint: http://localhost:8080
-    # ADK app name to route requests to
+    # ADK app name to route requests to (ignored if endpoint is "local")
     app_name: Agentic
+    # Path to agentic config.yaml (required if endpoint is "local")
+    # config_path: "../examples/farmer/config.yaml"
 
   # Default values for requests
   defaults:
