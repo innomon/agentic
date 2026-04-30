@@ -10,8 +10,11 @@ import (
 //go:wasmimport env subagent_count
 func subagent_count() int32
 
-//go:wasmimport env max_iterations
-func max_iterations() int32
+//go:wasmimport env get_config_param_len
+func get_config_param_len(key_ptr int32, key_len int32) int32
+
+//go:wasmimport env get_config_param
+func get_config_param(key_ptr int32, key_len int32, val_ptr int32, val_cap int32) int32
 
 //go:wasmimport env run_subagent
 func run_subagent(index int32) int32
@@ -47,7 +50,14 @@ func execute() int32 {
 		return 1
 	}
 
-	maxLoops := max_iterations()
+	maxLoopsStr := getConfigParam("max_iterations")
+	maxLoops := int32(10) // default
+	if maxLoopsStr != "" {
+		maxLoops = atoi(maxLoopsStr)
+		if maxLoops == 0 {
+			maxLoops = 1
+		}
+	}
 
 	initialInput := getInitialInput()
 	logString("loop-wasm: starting refinement loop for: " + initialInput)
@@ -129,4 +139,29 @@ func itoa(n int32) string {
 		n /= 10
 	}
 	return string(res)
+}
+
+func atoi(s string) int32 {
+	var n int32
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0
+		}
+		n = n*10 + int32(c-'0')
+	}
+	return n
+}
+
+func getConfigParam(key string) string {
+	keyBuf := []byte(key)
+	length := get_config_param_len(int32(uintptr(unsafe.Pointer(&keyBuf[0]))), int32(len(keyBuf)))
+	if length <= 0 {
+		return ""
+	}
+	valBuf := make([]byte, length)
+	n := get_config_param(int32(uintptr(unsafe.Pointer(&keyBuf[0]))), int32(len(keyBuf)), int32(uintptr(unsafe.Pointer(&valBuf[0]))), int32(len(valBuf)))
+	if n <= 0 {
+		return ""
+	}
+	return string(valBuf[:n])
 }

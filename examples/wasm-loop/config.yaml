@@ -17,7 +17,8 @@ agents:
     type: wasm
     description: A WASM-based orchestrator that loops until the critic is satisfied.
     module_path: examples/wasm-loop/loop.wasm
-    max_iterations: 3 # optional: default is 10, if 0 runs only once
+    params:
+      max_iterations: "3" # optional: default is 10, if 0 runs only once
     sub_agents:
       - WorkerAgent
       - CriticAgent

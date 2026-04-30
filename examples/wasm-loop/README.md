@@ -11,7 +11,7 @@ A sample TinyGo WASM module that implements an iterative refinement loop between
     *   **Decision:**
         *   If the Critic returns `[APPROVED]`, the loop stops.
         *   Otherwise, the Critic's feedback is combined with the original task and fed back into the next Worker iteration.
-    *   **Max Iterations:** The loop stops after `max_iterations` (configured in `config.yaml`, default is 10). If set to 0, it runs only once.
+    *   **Max Iterations:** The loop stops after `max_iterations` (configured in `config.yaml` under `params`, default is 10). If set to 0, it runs only once.
 3.  **Completion:** Returns the final state to the host.
 
 ## New ABI Functions Used
@@ -20,7 +20,8 @@ A sample TinyGo WASM module that implements an iterative refinement loop between
 |----------|-------------|
 | `get_input_len` | Returns the length of the original user prompt |
 | `get_input` | Copies the original user prompt into guest memory |
-| `max_iterations` | Returns the maximum number of iterations allowed |
+| `get_config_param_len` | Returns the length of a configuration parameter value |
+| `get_config_param` | Copies a configuration parameter value into guest memory |
 
 ## Build
 

@@ -18,8 +18,8 @@ import (
 
 type WasmAgentConfig struct {
 	registry.AgentBase `yaml:",inline"`
-	ModulePath         string `yaml:"module_path"`
-	MaxIterations      *uint  `yaml:"max_iterations,omitempty"`
+	ModulePath         string            `yaml:"module_path"`
+	Params             map[string]string `yaml:"params,omitempty"`
 }
 
 func (c *WasmAgentConfig) Validate() error {
@@ -43,6 +43,7 @@ type wasmEnv struct {
 	outputs   map[int32]string
 	nextInput string
 	metrics   map[int32]subagentMetrics
+	params    map[string]string
 }
 
 type wrappedCtx struct {
@@ -95,6 +96,7 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent, cfg *WasmAgentConfig) 
 				yield:   yield,
 				outputs: make(map[int32]string),
 				metrics: make(map[int32]subagentMetrics),
+				params:  cfg.Params,
 			}
 
 			rtConfig := wazero.NewRuntimeConfig().
@@ -112,16 +114,39 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent, cfg *WasmAgentConfig) 
 				Export("subagent_count")
 
 			hostBuilder.NewFunctionBuilder().
-				WithFunc(func(_ context.Context, _ api.Module) int32 {
-					if cfg.MaxIterations == nil {
-						return 10
+				WithFunc(func(_ context.Context, mod api.Module, keyPtr, keyLen int32) int32 {
+					keyBytes, ok := mod.Memory().Read(uint32(keyPtr), uint32(keyLen))
+					if !ok {
+						return -1
 					}
-					if *cfg.MaxIterations == 0 {
-						return 1
+					val, ok := env.params[string(keyBytes)]
+					if !ok {
+						return -1
 					}
-					return int32(*cfg.MaxIterations)
+					return int32(len(val))
 				}).
-				Export("max_iterations")
+				Export("get_config_param_len")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, mod api.Module, keyPtr, keyLen, valPtr, valCap int32) int32 {
+					keyBytes, ok := mod.Memory().Read(uint32(keyPtr), uint32(keyLen))
+					if !ok {
+						return -1
+					}
+					val, ok := env.params[string(keyBytes)]
+					if !ok {
+						return -1
+					}
+					valBytes := []byte(val)
+					if int32(len(valBytes)) > valCap {
+						valBytes = valBytes[:valCap]
+					}
+					if !mod.Memory().Write(uint32(valPtr), valBytes) {
+						return -1
+					}
+					return int32(len(valBytes))
+				}).
+				Export("get_config_param")
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, mod api.Module, index, bufPtr, bufCap int32) int32 {
