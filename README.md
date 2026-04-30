@@ -19,6 +19,7 @@ For more detailed technical documentation and architectural guides, see [docs/RE
 - **JWT Authentication**: Optional RS256 JWT verification middleware
 - **User Profile Database**: GORM-backed user management with JSONB profile/metadata
 - **OpenAI-Compatible Proxy**: Drop-in proxy for OpenAI API consumers
+- **Evaluation Utility**: Automated benchmarking of agent workflows for cost, latency, and quality using meta-agents and CLI skills
 - **Console & Web UI**: Interactive terminal with file attachments, browser UI, REST API, and OpenClaw WebSocket gateway
 
 ## Quick Start
@@ -154,6 +155,39 @@ Pre-built use-case configurations in `examples/`:
 | [wasm-eval](examples/wasm-eval/) | WASM meta-agent evaluation | `./agentic -run "Task" examples/wasm-eval/config.yaml` |
 | [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic -console examples/prolog-memory/config.yaml` |
 | [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic -console examples/openclaw/config.yaml` |
+
+## Benchmarking & Evaluation
+
+The framework includes automated utilities for evaluating agent performance, cost, and latency.
+
+### 1. WASM Meta-Agent (Native)
+Use the `wasm-eval` orchestrator to run native benchmarks within the framework.
+```bash
+# Build the evaluator
+cd examples/wasm-eval && make build
+
+# Run benchmark
+./agentic -run "Your test task" examples/wasm-eval/config.yaml
+```
+
+### 2. Evaluation Skill (AI-Driven)
+The `agentic-eval` skill enables high-level automated benchmarking driven by your coding agent.
+
+#### Installation
+
+**Gemini CLI:**
+```bash
+gemini skills install ./.gemini/skills/agentic-eval.skill --scope workspace
+# Reload skills in your active session
+/skills reload
+```
+
+**OpenCode / pi.dev / Cursor / Windsurf:**
+These agents can use the skill by reading the instructions in `docs/agentic-eval-skill.md`. Point your agent to this file or copy the instructions into your agent's custom instructions/rules to enable the `/eval:agentic` command.
+
+#### Usage
+Trigger evaluations via natural language:
+> `/eval:agentic Compare gemini-flash and gemini-pro for summarizing medical notes.`
 
 ## Configuration
 
@@ -713,7 +747,8 @@ agentic/
 │   ├── search/                      # Web search agent
 │   ├── prolog-memory/                # Logic-based Prolog knowledge agent
 │   ├── wasm-sequential/             # WASM orchestrator
-│   └── wasm-loop/                   # WASM refinement loop
+│   ├── wasm-loop/                   # WASM refinement loop
+│   └── wasm-eval/                   # WASM meta-agent evaluation
 ├── pkg/
 │   ├── auth/                        # JWT verification middleware
 │   ├── fsread/                      # Filesystem tool (fs_read)
