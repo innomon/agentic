@@ -10,6 +10,9 @@ import (
 //go:wasmimport env subagent_count
 func subagent_count() int32
 
+//go:wasmimport env max_iterations
+func max_iterations() int32
+
 //go:wasmimport env run_subagent
 func run_subagent(index int32) int32
 
@@ -36,8 +39,6 @@ func log_msg(ptr int32, len int32)
 
 func main() {}
 
-const maxLoops = 3
-
 //export execute
 func execute() int32 {
 	n := subagent_count()
@@ -46,13 +47,15 @@ func execute() int32 {
 		return 1
 	}
 
+	maxLoops := max_iterations()
+
 	initialInput := getInitialInput()
 	logString("loop-wasm: starting refinement loop for: " + initialInput)
 
 	currentInput := initialInput
 
-	for i := 0; i < maxLoops; i++ {
-		logString("loop-wasm: iteration " + itoa(int32(i+1)))
+	for i := int32(0); i < maxLoops; i++ {
+		logString("loop-wasm: iteration " + itoa(i+1))
 
 		// 1. Run the Worker (Agent 0)
 		logString("loop-wasm: running worker...")
@@ -127,12 +130,3 @@ func itoa(n int32) string {
 	}
 	return string(res)
 }
-
-//export malloc
-func wasmMalloc(size uint32) *byte {
-	buf := make([]byte, size)
-	return &buf[0]
-}
-
-//export free
-func wasmFree(ptr *byte) {}

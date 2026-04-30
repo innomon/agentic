@@ -19,6 +19,7 @@ import (
 type WasmAgentConfig struct {
 	registry.AgentBase `yaml:",inline"`
 	ModulePath         string `yaml:"module_path"`
+	MaxIterations      *uint  `yaml:"max_iterations,omitempty"`
 }
 
 func (c *WasmAgentConfig) Validate() error {
@@ -81,11 +82,11 @@ func wasmCreator(ctx context.Context, name string, cfg *WasmAgentConfig, _ regis
 		Name:        name,
 		Description: cfg.Description,
 		SubAgents:   sub,
-		Run:         newWasmRunFunc(wasmBytes, sub),
+		Run:         newWasmRunFunc(wasmBytes, sub, cfg),
 	})
 }
 
-func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
+func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent, cfg *WasmAgentConfig) func(agent.InvocationContext) iter.Seq2[*session.Event, error] {
 	return func(invCtx agent.InvocationContext) iter.Seq2[*session.Event, error] {
 		return func(yield func(*session.Event, error) bool) {
 			env := &wasmEnv{
@@ -109,6 +110,18 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 					return int32(len(env.subs))
 				}).
 				Export("subagent_count")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module) int32 {
+					if cfg.MaxIterations == nil {
+						return 10
+					}
+					if *cfg.MaxIterations == 0 {
+						return 1
+					}
+					return int32(*cfg.MaxIterations)
+				}).
+				Export("max_iterations")
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, mod api.Module, index, bufPtr, bufCap int32) int32 {
