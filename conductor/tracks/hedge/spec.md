@@ -1,52 +1,44 @@
-# Hedge Specification: Trading Committee Port
+# Hedge Specification: Trading Committee (MCP Edition)
 
 ## 1. Overview
-Porting the `TauricResearch/TradingAgents` framework to the **Agentic** Go framework. Hedge is a multi-agent system that simulates a trading committee to analyze financial assets and make trade recommendations.
+Porting the `TauricResearch/TradingAgents` framework to the **Agentic** Go framework. Hedge is a multi-agent system that simulates a trading committee to analyze financial assets. 
+
+**Architectural Shift:** To maintain a clean, configuration-driven example, all tools and functions are offloaded to a dedicated **Hedge MCP Server**. The `agentic` example will contain only configuration and will connect to this server.
 
 ## 2. Architecture
-The system utilizes a hierarchical multi-agent orchestrator where specialized analysts provide data to a Master Trader who makes the final decision, subject to Risk Manager approval.
+The system utilizes a hierarchical multi-agent orchestrator.
 
 ### 2.1 Core Components
 - **Orchestrator:** `agentic.Orchestrator` (Sequential/Parallel)
 - **State Management:** `session.Session` (ADK)
-- **Tools:** Native Go functions registered as `tool.Tool`
+- **Tooling:** All tools provided via [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
-## 3. Tool Specifications
+## 3. MCP Server: `hedge-mcp`
+Located at `/home/innomon/orez/mcp/mcp-collection/hedge-mcp`.
 
-### 3.1 Market Data Tool (`market_data`)
-- `GetPrices(symbol, resolution)`: Candle/quote data.
-- `GetVolume(symbol)`: Trading volume.
-- `GetHistoricalData(symbol, start, end)`: Time-series data.
-- **Provider:** FinnHub.
+### 3.1 Tools Provided
+- **Market Data (`market_data`)**:
+    - `get_prices(symbol, resolution)`: Candle/quote data.
+    - `get_volume(symbol)`: Trading volume.
+- **Quantitative Analysis (`quant_analysis`)**:
+    - `calculate_indicators(data)`: Returns RSI, MACD, Bollinger Bands, EMA (50/200), ATR.
+- **Sentiment & News (`sentiment_analysis`)**:
+    - `get_news(symbol)`: Headlines and news text.
+- **Fundamental Analysis (`fundamental_analysis`)**:
+    - `get_financials(symbol)`: P/E, Debt-to-Equity, etc.
 
-### 3.2 Quantitative Tool (`quant_analysis`)
-- Hand-crafted Go implementations for:
-  - RSI (Relative Strength Index)
-  - MACD (Moving Average Convergence Divergence)
-  - Bollinger Bands
-  - EMA (50/200)
-  - ATR (Average True Range)
+## 4. Agent Definitions (Configuration Only)
 
-### 3.3 Sentiment Tool (`sentiment_analysis`)
-- `GetNews(symbol)`: Latest news headlines.
-- `AnalyzeSentiment(text)`: Sentiment scoring (handled by Analyst agent).
-
-### 3.4 Fundamental Tool (`fundamental_analysis`)
-- `GetFinancials(symbol)`: Key ratios (P/E, Debt-to-Equity).
-- **Provider:** Alpha Vantage.
-
-## 4. Agent Definitions
-
-| Agent | Instruction | Tools |
+| Agent | Instruction | MCP Tools |
 | :--- | :--- | :--- |
 | **Technical Analyst** | Analyze price trends and momentum. identify entry/exit points. | `market_data`, `quant_analysis` |
 | **Fundamental Analyst** | Examine company health and intrinsic valuation. | `fundamental_analysis` |
 | **Sentiment Analyst** | Monitor news flow and market mood. | `sentiment_analysis` |
-| **Risk Manager** | Evaluate trade risk (ATR), stop-loss, and sizing. Can veto. | `InternalMathTool` |
-| **Master Trader** | Final decision (BUY/SELL/HOLD) based on committee input. | Committee Results |
+| **Risk Manager** | Evaluate trade risk (ATR), stop-loss, and sizing. | `quant_analysis` (ATR) |
+| **Master Trader** | Final decision (BUY/SELL/HOLD) based on committee input. | N/A |
 
 ## 5. Implementation Roadmap
-1. **Module Setup:** `examples/hedge` directory.
-2. **Tool Implementation:** Implement `pkg/hedge/tools` with FinnHub/AlphaVantage integrations.
-3. **Agent Configuration:** `examples/hedge/config.yaml`.
-4. **Main Entrypoint:** `examples/hedge/main.go` to wire everything.
+1. **MCP Server Development:** Implement `hedge-mcp` in `mcp-collection` using `github.com/modelcontextprotocol/go-sdk/mcp`.
+2. **Agentic Configuration:** Create `examples/hedge/config.yaml` defining the agents and connecting to the `hedge-mcp` server.
+3. **Execution:** Run via `agentic` CLI or a generic runner that supports MCP.
+

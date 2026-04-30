@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/agent"
@@ -79,7 +77,7 @@ func llmCreator(ctx context.Context, name string, cfg *LLMAgentConfig, models Mo
 
 	// Add MCP toolsets if specified
 	for _, mcpCfg := range cfg.MCPToolsets {
-		endpoint := expandEnvWithDefaults(mcpCfg.Endpoint)
+		endpoint := ExpandEnvWithDefaults(mcpCfg.Endpoint)
 		ts, err := mcptoolset.New(mcptoolset.Config{
 			Transport: &mcp.StreamableClientTransport{
 				Endpoint: endpoint,
@@ -123,19 +121,6 @@ func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRe
 			SubAgents:   sub,
 		},
 		MaxIterations: cfg.MaxIterations,
-	})
-}
-
-// expandEnvWithDefaults expands ${VAR:-default} and ${VAR} patterns in s.
-func expandEnvWithDefaults(s string) string {
-	return os.Expand(s, func(key string) string {
-		if name, def, ok := strings.Cut(key, ":-"); ok {
-			if v := os.Getenv(name); v != "" {
-				return v
-			}
-			return def
-		}
-		return os.Getenv(key)
 	})
 }
 

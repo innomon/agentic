@@ -1,0 +1,74 @@
+root_agent: master_trader
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-flash-latest
+    api_key: ${GOOGLE_API_KEY}
+    default: true
+
+agents:
+  technical_analyst:
+    type: llm
+    model: gemini-flash
+    description: "Expert in technical analysis, chart patterns, and momentum indicators."
+    instruction: |
+      Analyze the provided price data for the given symbol. 
+      Use the `calculate_indicators` tool to get RSI, MACD, Bollinger Bands, and EMA.
+      Identify trends, support/resistance levels, and potential entry/exit points.
+      Return a summary of your technical findings.
+    mcp_toolsets:
+      - endpoint: "${HEDGE_MCP_URL:-http://localhost:8082/mcp}"
+
+  fundamental_analyst:
+    type: llm
+    model: gemini-flash
+    description: "Expert in financial statement analysis and company valuation."
+    instruction: |
+      Analyze the company's financial health using the `get_financials` tool.
+      Focus on key ratios like P/E, Debt-to-Equity, and revenue growth.
+      Provide a long-term perspective on the asset's intrinsic value.
+    mcp_toolsets:
+      - endpoint: "${HEDGE_MCP_URL:-http://localhost:8082/mcp}"
+
+  sentiment_analyst:
+    type: llm
+    model: gemini-flash
+    description: "Expert in news sentiment and market mood analysis."
+    instruction: |
+      Monitor the news flow using the `get_news` tool.
+      Identify market-moving events and assess the overall sentiment (bullish/bearish/neutral).
+      Summarize how news might impact the asset's price in the short term.
+    mcp_toolsets:
+      - endpoint: "${HEDGE_MCP_URL:-http://localhost:8082/mcp}"
+
+  risk_manager:
+    type: llm
+    model: gemini-flash
+    description: "Expert in risk assessment, position sizing, and volatility."
+    instruction: |
+      Evaluate the proposed trade based on volatility (use ATR from `calculate_indicators`).
+      Suggest stop-loss levels and appropriate position sizing based on a 2% risk rule.
+      You have the power to VETO trades with unfavorable risk/reward ratios.
+    mcp_toolsets:
+      - endpoint: "${HEDGE_MCP_URL:-http://localhost:8082/mcp}"
+
+  master_trader:
+    type: llm
+    model: gemini-flash
+    description: "The final decision maker of the trading committee."
+    sub_agents:
+      - technical_analyst
+      - fundamental_analyst
+      - sentiment_analyst
+      - risk_manager
+    instruction: |
+      You are the Master Trader. Your goal is to provide a final trade recommendation for a given symbol.
+      
+      1. Delegate to the `technical_analyst` to get price trends and indicators.
+      2. Delegate to the `fundamental_analyst` to assess company value.
+      3. Delegate to the `sentiment_analyst` to gauge market mood.
+      4. Finally, delegate to the `risk_manager` to evaluate the risk of the proposed decision.
+      
+      Review all inputs and make the final decision: BUY, SELL, or HOLD.
+      Output a structured JSON response with: action, confidence (0-1), reasoning, and risk_parameters.

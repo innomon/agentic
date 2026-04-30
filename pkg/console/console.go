@@ -17,6 +17,7 @@ import (
 	"google.golang.org/adk/runner"
 	"google.golang.org/adk/session"
 	"google.golang.org/genai"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Launcher implements a custom console with file attachment syntax.
@@ -57,6 +58,7 @@ Attach files using @/path/to/file syntax:
 Commands:
   /help                 Show this help message
   /save [filename]      Save session to JSON file (default: session_<timestamp>.json)
+  /mcp [endpoint]       List and verify MCP tools (default: use configured endpoints)
   /exit, /quit          Exit the console
 
 Supported file types:
@@ -155,6 +157,7 @@ func (l *Launcher) Run(ctx context.Context, cfg *launcher.Config) error {
 	commands := map[string]commandHandler{
 		"help": cmdHelp,
 		"save": cmdSave,
+		"mcp":  cmdMCP,
 		"exit": cmdExit,
 		"quit": cmdExit,
 	}
@@ -338,6 +341,49 @@ func getMIMEType(path string) string {
 
 func cmdHelp(_ *consoleContext, _ string) (*commandResult, error) {
 	return &commandResult{output: help}, nil
+}
+
+func cmdMCP(cc *consoleContext, args string) (*commandResult, error) {
+	endpoint := strings.TrimSpace(args)
+	if endpoint == "" {
+		return &commandResult{output: "Usage: /mcp <endpoint_url>\nExample: /mcp http://localhost:8082/mcp"}, nil
+	}
+
+	fmt.Printf("Connecting to MCP endpoint: %s...\n", endpoint)
+
+	transport := &mcp.StreamableClientTransport{
+		Endpoint: endpoint,
+	}
+
+	client := mcp.NewClient(&mcp.Implementation{
+		Name:    "agentic-console-debug",
+		Version: "1.0.0",
+	}, nil)
+
+	ctx, cancel := context.WithTimeout(cc.ctx, 15*time.Second)
+	defer cancel()
+
+	fmt.Println("Connecting and initializing session...")
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init MCP session: %w", err)
+	}
+	defer session.Close()
+
+	fmt.Println("Listing tools...")
+	resp, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tools: %w", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Successfully connected to %s\n", endpoint))
+	sb.WriteString(fmt.Sprintf("Found %d tools:\n", len(resp.Tools)))
+	for _, t := range resp.Tools {
+		sb.WriteString(fmt.Sprintf("- %s: %s\n", t.Name, t.Description))
+	}
+
+	return &commandResult{output: sb.String()}, nil
 }
 
 func cmdExit(_ *consoleContext, _ string) (*commandResult, error) {

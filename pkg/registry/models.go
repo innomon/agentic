@@ -72,30 +72,35 @@ func (c *OllamaConfig) Validate() error {
 
 func geminiCreator(ctx context.Context, cfg *GeminiConfig) (model.LLM, error) {
 	clientCfg := &genai.ClientConfig{}
-	if cfg.APIKey != "" {
-		clientCfg.APIKey = cfg.APIKey
+	apiKey := ExpandEnvWithDefaults(cfg.APIKey)
+	if apiKey != "" {
+		clientCfg.APIKey = apiKey
 	}
-	if cfg.Backend != "" {
+	backend := ExpandEnvWithDefaults(cfg.Backend)
+	if backend != "" {
 		clientCfg.Backend = genai.BackendGeminiAPI
-		if cfg.Backend == "vertexai" {
+		if backend == "vertexai" {
 			clientCfg.Backend = genai.BackendVertexAI
 		}
 	}
-	if cfg.Project != "" {
-		clientCfg.Project = cfg.Project
+	project := ExpandEnvWithDefaults(cfg.Project)
+	if project != "" {
+		clientCfg.Project = project
 	}
-	if cfg.Location != "" {
-		clientCfg.Location = cfg.Location
+	location := ExpandEnvWithDefaults(cfg.Location)
+	if location != "" {
+		clientCfg.Location = location
 	}
-	return gemini.NewModel(ctx, cfg.ModelID, clientCfg)
+	return gemini.NewModel(ctx, ExpandEnvWithDefaults(cfg.ModelID), clientCfg)
 }
 
 func openaiCreator(_ context.Context, cfg *OpenAIConfig) (model.LLM, error) {
-	return adkopenai.NewOpenAIModelWithAPIKey(cfg.ModelID, cfg.APIKey), nil
+	apiKey := ExpandEnvWithDefaults(cfg.APIKey)
+	return adkopenai.NewOpenAIModelWithAPIKey(ExpandEnvWithDefaults(cfg.ModelID), apiKey), nil
 }
 
 func ollamaCreator(_ context.Context, cfg *OllamaConfig) (model.LLM, error) {
-	return NewOllamaModel(cfg.ModelID, cfg.BaseURL), nil
+	return NewOllamaModel(ExpandEnvWithDefaults(cfg.ModelID), ExpandEnvWithDefaults(cfg.BaseURL)), nil
 }
 
 func init() {
