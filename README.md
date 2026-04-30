@@ -129,6 +129,7 @@ Flags:
   -webui            Browser-based UI
   -a2a              REST API (A2A)
   -openclaw         OpenClaw WebSocket gateway
+  -run "message"    Run a single message and exit
   -host             Host for API/WebUI (e.g. local IP)
   -port             Port to listen on (default: 8080)
 
@@ -150,6 +151,7 @@ Pre-built use-case configurations in `examples/`:
 | [hedge](examples/hedge/) | Multi-agent trading committee (MCP) | `./agentic -console examples/hedge/config.yaml` |
 | [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic -console examples/wasm-sequential/config.yaml` |
 | [wasm-loop](examples/wasm-loop/) | WASM iterative refinement loop | `./agentic -console examples/wasm-loop/config.yaml` |
+| [wasm-eval](examples/wasm-eval/) | WASM meta-agent evaluation | `./agentic -run "Task" examples/wasm-eval/config.yaml` |
 | [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic -console examples/prolog-memory/config.yaml` |
 | [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic -console examples/openclaw/config.yaml` |
 
@@ -438,7 +440,7 @@ agents:
     sub_agents: [Agent1, Agent2]
 ```
 
-The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.subagent_output_len`, `env.subagent_output_get`, `env.set_input`, `env.get_input_len`, `env.get_input`, `env.log_msg`.
+The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.subagent_output_len`, `env.subagent_output_get`, `env.subagent_duration_ms`, `env.subagent_token_input`, `env.subagent_token_output`, `env.set_input`, `env.get_input_len`, `env.get_input`, `env.log_msg`.
 
 #### MCP Toolsets
 

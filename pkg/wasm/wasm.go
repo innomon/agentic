@@ -6,6 +6,7 @@ import (
 	"iter"
 	"log"
 	"os"
+	"time"
 
 	"github.com/innomon/agentic/pkg/registry"
 	"github.com/tetratelabs/wazero"
@@ -27,6 +28,12 @@ func (c *WasmAgentConfig) Validate() error {
 	return nil
 }
 
+type subagentMetrics struct {
+	durationMs   int64
+	inputTokens  int32
+	outputTokens int32
+}
+
 type wasmEnv struct {
 	invCtx    agent.InvocationContext
 	subs      []agent.Agent
@@ -34,6 +41,7 @@ type wasmEnv struct {
 	lastErr   string
 	outputs   map[int32]string
 	nextInput string
+	metrics   map[int32]subagentMetrics
 }
 
 type wrappedCtx struct {
@@ -42,6 +50,26 @@ type wrappedCtx struct {
 }
 
 func (c *wrappedCtx) Input() string { return c.input }
+
+type hasInput interface {
+	Input() string
+}
+
+func getInput(ctx agent.InvocationContext) string {
+	if hi, ok := ctx.(hasInput); ok {
+		return hi.Input()
+	}
+	// Fallback to UserContent if available
+	content := ctx.UserContent()
+	if content == nil {
+		return ""
+	}
+	var text string
+	for _, p := range content.Parts {
+		text += p.Text
+	}
+	return text
+}
 
 func wasmCreator(ctx context.Context, name string, cfg *WasmAgentConfig, _ registry.ModelRegistry, _ registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	wasmBytes, err := os.ReadFile(cfg.ModulePath)
@@ -65,6 +93,7 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 				subs:    subs,
 				yield:   yield,
 				outputs: make(map[int32]string),
+				metrics: make(map[int32]subagentMetrics),
 			}
 
 			rtConfig := wazero.NewRuntimeConfig().
@@ -112,22 +141,54 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 
 					sub := env.subs[index]
 					var output string
+					var inputTokens, outputTokens int32
+					start := time.Now()
 					for ev, err := range sub.Run(runCtx) {
 						if err != nil {
 							env.lastErr = err.Error()
 							return 1
 						}
-						if ev.Type == session.EventTypeText {
-							output += ev.Text
+						if ev.Content != nil {
+							for _, p := range ev.Content.Parts {
+								output += p.Text
+							}
+						}
+						if ev.LLMResponse.UsageMetadata != nil {
+							inputTokens += ev.LLMResponse.UsageMetadata.PromptTokenCount
+							outputTokens += ev.LLMResponse.UsageMetadata.CandidatesTokenCount
 						}
 						if !env.yield(ev, nil) {
 							return 0
 						}
 					}
+					duration := time.Since(start)
 					env.outputs[index] = output
+					env.metrics[index] = subagentMetrics{
+						durationMs:   duration.Milliseconds(),
+						inputTokens:  inputTokens,
+						outputTokens: outputTokens,
+					}
 					return 0
 				}).
 				Export("run_subagent")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module, index int32) int64 {
+					return env.metrics[index].durationMs
+				}).
+				Export("subagent_duration_ms")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module, index int32) int32 {
+					return env.metrics[index].inputTokens
+				}).
+				Export("subagent_token_input")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module, index int32) int32 {
+					return env.metrics[index].outputTokens
+				}).
+				Export("subagent_token_output")
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, _ api.Module, index int32) int32 {
@@ -163,13 +224,13 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, _ api.Module) int32 {
-					return int32(len(env.invCtx.Input()))
+					return int32(len(getInput(env.invCtx)))
 				}).
 				Export("get_input_len")
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, mod api.Module, bufPtr, bufCap int32) int32 {
-					input := []byte(env.invCtx.Input())
+					input := []byte(getInput(env.invCtx))
 					if int32(len(input)) > bufCap {
 						input = input[:bufCap]
 					}
@@ -231,5 +292,5 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 }
 
 func init() {
-	registry.RegisterProvider("agent", "wasm", registry.ProviderCreator[WasmAgentConfig, agent.Agent](wasmCreator))
+	registry.RegisterAgentType("wasm", wasmCreator)
 }

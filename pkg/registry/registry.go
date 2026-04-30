@@ -38,6 +38,7 @@ type Registry struct {
 	closers   []io.Closer
 	sandboxes *sandbox.SandboxManager
 	ctx       context.Context
+	input     string
 }
 
 func New(cfg *Config) *Registry {
@@ -92,6 +93,7 @@ func (r *Registry) Agent() agent.Agent          { return nil }
 func (r *Registry) Artifacts() agent.Artifacts  { return nil }
 func (r *Registry) Memory() agent.Memory        { return nil }
 func (r *Registry) Session() session.Session    { return nil }
+func (r *Registry) Input() string               { return r.input }
 func (r *Registry) InvocationID() string        { return "sandbox-root" }
 func (r *Registry) Branch() string              { return "root" }
 func (r *Registry) UserContent() *genai.Content { return nil }
@@ -107,6 +109,20 @@ func (r *Registry) WithContext(ctx context.Context) agent.InvocationContext {
 		closers:   r.closers,
 		sandboxes: r.sandboxes,
 		ctx:       ctx,
+		input:     r.input,
+	}
+}
+
+func (r *Registry) WithInput(input string) *Registry {
+	return &Registry{
+		cfg:       r.cfg,
+		items:     r.items,
+		loaders:   r.loaders,
+		building:  r.building,
+		closers:   r.closers,
+		sandboxes: r.sandboxes,
+		ctx:       r.ctx,
+		input:     input,
 	}
 }
 

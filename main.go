@@ -36,6 +36,7 @@ func main() {
 	a2aFlag := flag.Bool("a2a", false, "add a2a launcher")
 	consoleFlag := flag.Bool("console", false, "add console launcher")
 	apiFlag := flag.Bool("api", true, "add api launcher")
+	runMsg := flag.String("run", "", "run a single message and exit")
 	host := flag.String("host", "localhost", "host to use for api_server_address and webui_address (e.g. your local IP)")
 	port := flag.Int("port", 8080, "port to listen on")
 	flag.Parse()
@@ -62,6 +63,26 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
+	}
+
+	if *runMsg != "" {
+		reg := registry.New(cfg).WithInput(*runMsg)
+		root, err := reg.GetRoot(ctx)
+		if err != nil {
+			log.Fatalf("Failed to get root agent: %v", err)
+		}
+		for ev, err := range root.Run(reg) {
+			if err != nil {
+				log.Fatalf("Run error: %v", err)
+			}
+			if ev.Content != nil {
+				for _, p := range ev.Content.Parts {
+					fmt.Print(p.Text)
+				}
+			}
+		}
+		fmt.Println()
+		return
 	}
 
 	if *openClaw {

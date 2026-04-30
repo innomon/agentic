@@ -1,0 +1,46 @@
+# EvalAgent - Meta-Agent Evaluation Example
+#
+# This orchestrator evaluates multiple candidate agents and uses a Judge agent to score them.
+
+root_agent: EvalOrchestrator
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+  gemini-pro:
+    provider: gemini
+    model_id: gemini-2.0-pro-exp-02-05
+
+agents:
+  EvalOrchestrator:
+    type: wasm
+    description: A WASM-based orchestrator that evaluates sub-agents.
+    module_path: examples/wasm-eval/eval.wasm
+    sub_agents:
+      - FlashCandidate
+      - ProCandidate
+      - JudgeAgent
+
+  FlashCandidate:
+    description: Gemini Flash candidate
+    model: gemini-flash
+    instruction: |
+      You are a helpful assistant. Provide concise and accurate answers.
+
+  ProCandidate:
+    description: Gemini Pro candidate
+    model: gemini-pro
+    instruction: |
+      You are a high-reasoning assistant. Provide detailed and thorough answers.
+
+  JudgeAgent:
+    description: Reviews candidate output and scores it.
+    model: gemini-flash
+    instruction: |
+      You are an expert judge. You will be given a TASK and a RESPONSE.
+      Evaluate the response based on the task.
+      Provide a score from 1 to 10 and a one-sentence justification.
+      Format: [Score]/10 - [Justification]
