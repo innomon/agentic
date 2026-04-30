@@ -4,6 +4,8 @@ A config-driven agentic framework built on Google's [ADK-Go](https://github.com/
 
 **Work In Progress: Do not use yet**
 
+For more detailed technical documentation and architectural guides, see [docs/README.md](docs/README.md).
+
 ## Features
 
 - **Config-Driven**: All agents, models, tools, and workflows defined in YAML
