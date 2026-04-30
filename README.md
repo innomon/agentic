@@ -147,6 +147,7 @@ Pre-built use-case configurations in `examples/`:
 | [search](examples/search/) | Web search via Google Search | `./agentic -console examples/search/config.yaml` |
 | [hedge](examples/hedge/) | Multi-agent trading committee (MCP) | `./agentic -console examples/hedge/config.yaml` |
 | [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic -console examples/wasm-sequential/config.yaml` |
+| [wasm-loop](examples/wasm-loop/) | WASM iterative refinement loop | `./agentic -console examples/wasm-loop/config.yaml` |
 | [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic -console examples/prolog-memory/config.yaml` |
 | [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic -console examples/openclaw/config.yaml` |
 
@@ -435,7 +436,7 @@ agents:
     sub_agents: [Agent1, Agent2]
 ```
 
-The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.log_msg`.
+The module exports `execute() -> i32`. Host functions: `env.subagent_count`, `env.subagent_name`, `env.run_subagent`, `env.subagent_output_len`, `env.subagent_output_get`, `env.set_input`, `env.get_input_len`, `env.get_input`, `env.log_msg`.
 
 #### MCP Toolsets
 
@@ -707,7 +708,8 @@ agentic/
 │   ├── routing/                     # Role-based routing
 │   ├── search/                      # Web search agent
 │   ├── prolog-memory/                # Logic-based Prolog knowledge agent
-│   └── wasm-sequential/             # WASM orchestrator
+│   ├── wasm-sequential/             # WASM orchestrator
+│   └── wasm-loop/                   # WASM refinement loop
 ├── pkg/
 │   ├── auth/                        # JWT verification middleware
 │   ├── fsread/                      # Filesystem tool (fs_read)
