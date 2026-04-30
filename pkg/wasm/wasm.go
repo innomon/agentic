@@ -28,11 +28,20 @@ func (c *WasmAgentConfig) Validate() error {
 }
 
 type wasmEnv struct {
-	invCtx  agent.InvocationContext
-	subs    []agent.Agent
-	yield   func(*session.Event, error) bool
-	lastErr string
+	invCtx    agent.InvocationContext
+	subs      []agent.Agent
+	yield     func(*session.Event, error) bool
+	lastErr   string
+	outputs   map[int32]string
+	nextInput string
 }
+
+type wrappedCtx struct {
+	agent.InvocationContext
+	input string
+}
+
+func (c *wrappedCtx) Input() string { return c.input }
 
 func wasmCreator(ctx context.Context, name string, cfg *WasmAgentConfig, _ registry.ModelRegistry, _ registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	wasmBytes, err := os.ReadFile(cfg.ModulePath)
@@ -52,9 +61,10 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 	return func(invCtx agent.InvocationContext) iter.Seq2[*session.Event, error] {
 		return func(yield func(*session.Event, error) bool) {
 			env := &wasmEnv{
-				invCtx: invCtx,
-				subs:   subs,
-				yield:  yield,
+				invCtx:  invCtx,
+				subs:    subs,
+				yield:   yield,
+				outputs: make(map[int32]string),
 			}
 
 			rtConfig := wazero.NewRuntimeConfig().
@@ -93,19 +103,63 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 						env.lastErr = fmt.Sprintf("sub-agent index %d out of range", index)
 						return 1
 					}
+
+					var runCtx agent.InvocationContext = env.invCtx
+					if env.nextInput != "" {
+						runCtx = &wrappedCtx{InvocationContext: env.invCtx, input: env.nextInput}
+						env.nextInput = ""
+					}
+
 					sub := env.subs[index]
-					for ev, err := range sub.Run(env.invCtx) {
+					var output string
+					for ev, err := range sub.Run(runCtx) {
 						if err != nil {
 							env.lastErr = err.Error()
 							return 1
+						}
+						if ev.Type == session.EventTypeText {
+							output += ev.Text
 						}
 						if !env.yield(ev, nil) {
 							return 0
 						}
 					}
+					env.outputs[index] = output
 					return 0
 				}).
 				Export("run_subagent")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module, index int32) int32 {
+					return int32(len(env.outputs[index]))
+				}).
+				Export("subagent_output_len")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, mod api.Module, index, bufPtr, bufCap int32) int32 {
+					out, ok := env.outputs[index]
+					if !ok {
+						return -1
+					}
+					outBytes := []byte(out)
+					if int32(len(outBytes)) > bufCap {
+						outBytes = outBytes[:bufCap]
+					}
+					if !mod.Memory().Write(uint32(bufPtr), outBytes) {
+						return -1
+					}
+					return int32(len(outBytes))
+				}).
+				Export("subagent_output_get")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, mod api.Module, ptr, length int32) {
+					buf, ok := mod.Memory().Read(uint32(ptr), uint32(length))
+					if ok {
+						env.nextInput = string(buf)
+					}
+				}).
+				Export("set_input")
 
 			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, mod api.Module, ptr, length int32) {
@@ -149,7 +203,7 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 			if len(results) > 0 && results[0] != 0 {
 				errMsg := env.lastErr
 				if errMsg == "" {
-					errMsg = fmt.Sprintf("execute returned non-zero: %d", results[0])
+					errMsg = fmt.Sprintf("exit code %d", results[0])
 				}
 				yield(nil, fmt.Errorf("wasm: %s", errMsg))
 			}
@@ -158,5 +212,5 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 }
 
 func init() {
-	registry.RegisterAgentType("wasm", wasmCreator)
+	registry.RegisterProvider("agent", "wasm", registry.ProviderCreator[WasmAgentConfig, agent.Agent](wasmCreator))
 }
