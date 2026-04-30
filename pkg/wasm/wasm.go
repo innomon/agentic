@@ -162,6 +162,25 @@ func newWasmRunFunc(wasmBytes []byte, subs []agent.Agent) func(agent.InvocationC
 				Export("set_input")
 
 			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, _ api.Module) int32 {
+					return int32(len(env.invCtx.Input()))
+				}).
+				Export("get_input_len")
+
+			hostBuilder.NewFunctionBuilder().
+				WithFunc(func(_ context.Context, mod api.Module, bufPtr, bufCap int32) int32 {
+					input := []byte(env.invCtx.Input())
+					if int32(len(input)) > bufCap {
+						input = input[:bufCap]
+					}
+					if !mod.Memory().Write(uint32(bufPtr), input) {
+						return -1
+					}
+					return int32(len(input))
+				}).
+				Export("get_input")
+
+			hostBuilder.NewFunctionBuilder().
 				WithFunc(func(_ context.Context, mod api.Module, ptr, length int32) {
 					buf, ok := mod.Memory().Read(uint32(ptr), uint32(length))
 					if ok {

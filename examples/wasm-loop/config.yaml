@@ -1,0 +1,38 @@
+# WasmLoop - Refinement Loop Example
+#
+# This example uses a WASM module to orchestrate a Worker and a Critic.
+# The Worker generates a response, and the Critic reviews it.
+# If the Critic is not satisfied, it provides feedback and the loop repeats.
+
+root_agent: LoopOrchestrator
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  LoopOrchestrator:
+    type: wasm
+    description: A WASM-based orchestrator that loops until the critic is satisfied.
+    module_path: examples/wasm-loop/loop.wasm
+    sub_agents:
+      - WorkerAgent
+      - CriticAgent
+
+  WorkerAgent:
+    description: Generates content based on the task and feedback.
+    model: gemini-flash
+    instruction: |
+      You are a content writer. Your goal is to fulfill the user's request as accurately as possible.
+      If previous attempts and feedback are provided, use them to improve your response.
+
+  CriticAgent:
+    description: Reviews the worker's output and provides feedback.
+    model: gemini-flash
+    instruction: |
+      You are a strict editor and fact-checker. 
+      Review the provided output. 
+      - If it is excellent and meets all requirements, start your response with "[APPROVED]".
+      - If it needs improvement, explain exactly what is wrong and how to fix it. Do NOT say "[APPROVED]".
