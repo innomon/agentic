@@ -1,0 +1,19 @@
+root_agent: mcp_tester
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-1.5-flash
+    api_key: ${GOOGLE_API_KEY}
+    default: true
+
+agents:
+  mcp_tester:
+    type: llm
+    model: gemini-flash
+    description: "A simple agent to test MCP tool discovery."
+    instruction: |
+      You are an MCP testing agent. Your only goal is to verify that you can see and use the tools provided by the MCP server.
+      When asked, list the tools you have access to and describe what they do.
+    mcp_toolsets:
+      - endpoint: "${HELLO_MCP_URL:-http://127.0.0.1:8083/mcp}"
