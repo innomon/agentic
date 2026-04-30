@@ -16,11 +16,13 @@ The example utilizes a hierarchical agent structure:
 
 ## Prerequisites
 
-1.  **Hedge MCP Server**: You must have the `hedge-mcp` server running.
+1.  **Hedge MCP Server**: You must have the [hedge-mcp](https://github.com/innomon/mcp-collection/tree/master/hedge-mcp) server running.
     ```bash
-    cd /home/innomon/orez/mcp/mcp-collection/hedge-mcp
+    # Clone and run the MCP server
+    git clone https://github.com/innomon/mcp-collection.git
+    cd mcp-collection/hedge-mcp
     export HEDGE_MCP_TRANSPORT=sse
-    ./hedge-mcp -simulate
+    go run main.go -simulate
     ```
 
 2.  **API Keys**: Ensure your `GOOGLE_API_KEY` is set in your environment.

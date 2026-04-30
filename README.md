@@ -145,6 +145,7 @@ Pre-built use-case configurations in `examples/`:
 | [farmer](examples/farmer/) | Organic farming advisor (India) | `./agentic -console examples/farmer/config.yaml` |
 | [routing](examples/routing/) | Role-based user routing | `./agentic -console examples/routing/config.yaml` |
 | [search](examples/search/) | Web search via Google Search | `./agentic -console examples/search/config.yaml` |
+| [hedge](examples/hedge/) | Multi-agent trading committee (MCP) | `./agentic -console examples/hedge/config.yaml` |
 | [wasm-sequential](examples/wasm-sequential/) | WASM orchestrator agent | `./agentic -console examples/wasm-sequential/config.yaml` |
 | [prolog-memory](examples/prolog-memory/) | Logic-based Prolog knowledge agent | `./agentic -console examples/prolog-memory/config.yaml` |
 | [openclaw](examples/openclaw/) | OpenClaw WebSocket gateway | `./agentic -console examples/openclaw/config.yaml` |
@@ -701,6 +702,7 @@ agentic/
 ├── examples/
 │   ├── med-fhir/                    # Medical FHIR transcription
 │   ├── farmer/                      # Organic farming advisor
+│   ├── hedge/                       # Multi-agent trading committee (MCP)
 │   ├── openclaw/                    # OpenClaw WebSocket gateway
 │   ├── routing/                     # Role-based routing
 │   ├── search/                      # Web search agent
