@@ -54,6 +54,28 @@ func (v *QuickJSVM) Init(cfg sandbox.VMConfig, host *sandbox.HostContext) error 
 		return err
 	}
 
+	// Inject Env (Secrets)
+	for k, val := range cfg.Env {
+		v.vm.RegisterFunc(k, func(args ...any) any {
+			return val
+		}, false)
+	}
+
+	// Register getSecret (helper)
+	err = v.vm.RegisterFunc("getSecret", func(args ...any) any {
+		if len(args) > 0 {
+			if key, ok := args[0].(string); ok {
+				if val, ok := cfg.Env[key]; ok {
+					return val
+				}
+			}
+		}
+		return nil
+	}, false)
+	if err != nil {
+		return err
+	}
+
 	// Inject tools
 	for _, toolName := range cfg.AllowTools {
 		name := toolName
@@ -72,7 +94,7 @@ func (v *QuickJSVM) Init(cfg sandbox.VMConfig, host *sandbox.HostContext) error 
 			if err != nil {
 				return map[string]any{"error": err.Error()}
 			}
-			
+
 			val, err := v.toValue(res)
 			if err != nil {
 				return map[string]any{"error": fmt.Sprintf("failed to convert result: %v", err)}
@@ -113,7 +135,7 @@ func (v *QuickJSVM) toValue(val any) (any, error) {
 		}
 		return obj, nil
 	case []any:
-		obj, err := v.vm.NewObjectValue() 
+		obj, err := v.vm.NewObjectValue()
 		if err != nil {
 			return nil, err
 		}
