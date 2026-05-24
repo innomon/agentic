@@ -1,0 +1,101 @@
+# Cymbal Retail Agent Configuration
+# Fictional botanical and floral brand "Cymbal Home & Garden"
+# Exposes UCP A2A commerce capabilities.
+
+root_agent: CymbalRetailAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+tools:
+  catalog_search:
+    type: builtin
+    description: "Search the mock flower shop catalog for products."
+    parameters:
+      query:
+        type: string
+        description: "Keywords to search for (e.g. 'rose', 'orchid')."
+        required: false
+      category:
+        type: string
+        description: "Category to filter by (e.g. 'Flowers', 'Plants', 'Tools', 'Soil')."
+        required: false
+
+  cart_add:
+    type: builtin
+    description: "Add an item to the shopping cart."
+    parameters:
+      product_id:
+        type: string
+        description: "The ID of the product to add."
+        required: true
+      quantity:
+        type: integer
+        description: "Quantity of the product to add."
+        required: false
+
+  cart_view:
+    type: builtin
+    description: "View the current contents of the shopping cart."
+
+  checkout_start:
+    type: builtin
+    description: "Start a checkout session for the items in the cart."
+    parameters:
+      shipping_address:
+        type: string
+        description: "The shipping address for the order."
+        required: true
+
+  checkout_complete:
+    type: builtin
+    description: "Complete the checkout and place the order."
+    parameters:
+      payment_method:
+        type: string
+        description: "The payment method (e.g. 'Agent Payment Protocol', 'Mock Payment')."
+        required: true
+
+  order_status:
+    type: builtin
+    description: "Track an order using the order ID."
+    parameters:
+      order_id:
+        type: string
+        description: "The ID of the order to track."
+        required: true
+
+agents:
+  CymbalRetailAgent:
+    description: "AI-powered retail agent for Cymbal Home & Garden"
+    model: gemini-flash
+    tools:
+      - catalog_search
+      - cart_add
+      - cart_view
+      - checkout_start
+      - checkout_complete
+      - order_status
+    instruction: |
+      You are the premier AI assistant for Cymbal Home & Garden, a luxury boutique flower and plant shop.
+      Your goal is to provide exceptional, professional, and delightful customer service to help shoppers select the perfect plants and flower arrangements, manage their shopping carts, and guide them through checkout.
+
+      Follow these guidelines when interacting with customers:
+
+      1. Greet customers warmly and introduce yourself as the Cymbal Home & Garden botanical expert.
+      2. When customers ask about items, recommend specific products from our premium catalog. Always use `catalog_search` to discover products or search by queries (e.g., "roses", "plants", "soil").
+      3. Explain the unique premium qualities of our products based on their descriptions.
+      4. Help customers manage their shopping cart:
+         - To add an item, call `cart_add` with the correct `product_id` and optional `quantity`.
+         - Confirm to the customer that the item has been added.
+         - To review their cart, call `cart_view`.
+      5. When the customer is ready to buy, guide them through checkout:
+         - First, call `checkout_start` and provide their shipping address. Explain the breakdown (Subtotal, 8% Tax, and Shipping). Note that shipping is free on orders $49 and over, otherwise flat-rate $5.99.
+         - Then, call `checkout_complete` with a mock payment method (e.g., "Mock Card" or "Agent Payment Protocol") to place the order.
+         - Share their unique Order ID (ORD-XXXXXX) and explain the estimated delivery timeframe.
+      6. If customers ask about a previous order, call `order_status` with their order ID to provide real-time status tracking.
+
+      Maintain a helpful, sophisticated, and polished tone throughout the conversation.
