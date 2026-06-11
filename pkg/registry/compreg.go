@@ -8,6 +8,7 @@ import (
 	"github.com/innomon/agentic/pkg/compreg"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
+	"google.golang.org/adk/plugin"
 	"google.golang.org/adk/tool"
 	"gopkg.in/yaml.v3"
 )
@@ -170,10 +171,25 @@ func CreateProvider[C any, S any](ctx context.Context, serviceType, providerName
 
 	creator, ok := creatorAny.(ProviderCreator[C, S])
 
-	                if !ok {
+	if !ok {
 
-	                        return zero, fmt.Errorf("internal error: invalid creator type for %s provider %q", serviceType, providerName)
+		return zero, fmt.Errorf("internal error: invalid creator type for %s provider %q", serviceType, providerName)
 
-	                }
+	}
 
-	                return creator(ctx, cfg)}
+	return creator(ctx, cfg)
+}
+
+// PluginCreator defines the function signature for creating custom ADK plugins.
+type PluginCreator func(ctx context.Context, name string, entry PluginEntry) (*plugin.Plugin, error)
+
+// RegisterPluginCreator registers a new plugin creator for a specific plugin type.
+func RegisterPluginCreator(typeName string, creator PluginCreator) {
+	compreg.Set("plugin_creator:"+typeName, creator)
+}
+
+// GetPluginCreator retrieves a registered plugin creator by type name.
+func GetPluginCreator(typeName string) (PluginCreator, bool) {
+	return compreg.Lookup[PluginCreator]("plugin_creator:" + typeName)
+}
+

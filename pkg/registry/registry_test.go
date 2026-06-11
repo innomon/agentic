@@ -12,6 +12,7 @@ import (
 	"github.com/innomon/agentic/pkg/compreg"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/model"
+	"google.golang.org/adk/plugin"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
 	"gopkg.in/yaml.v3"
@@ -575,6 +576,13 @@ func TestLoadAgent_Workflow(t *testing.T) {
 
 func TestBuildLauncherConfig_Plugins(t *testing.T) {
 	agentType := uniqueName(t, "agent-type")
+	customPluginType := uniqueName(t, "custom-plugin-type")
+	RegisterPluginCreator(customPluginType, func(ctx context.Context, name string, entry PluginEntry) (*plugin.Plugin, error) {
+		return plugin.New(plugin.Config{
+			Name: "custom-plugin-instance",
+		})
+	})
+
 	cfg := &Config{
 		RootAgent: "Root",
 		Agents: map[string]AgentEntry{
@@ -583,6 +591,7 @@ func TestBuildLauncherConfig_Plugins(t *testing.T) {
 		Plugins: []PluginEntry{
 			{Type: "logging", Name: "my-logger"},
 			{Type: "retry", Name: "my-retry", Config: map[string]any{"max_retries": 5, "scope": "global", "error_if_retry_exceeded": true}},
+			{Type: customPluginType, Name: "my-custom-plugin"},
 		},
 	}
 	reg := New(cfg)
@@ -595,14 +604,17 @@ func TestBuildLauncherConfig_Plugins(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(launcherCfg.PluginConfig.Plugins) != 2 {
-		t.Errorf("expected 2 plugins, got %d", len(launcherCfg.PluginConfig.Plugins))
+	if len(launcherCfg.PluginConfig.Plugins) != 3 {
+		t.Errorf("expected 3 plugins, got %d", len(launcherCfg.PluginConfig.Plugins))
 	}
 	if launcherCfg.PluginConfig.Plugins[0].Name() != "my-logger" {
 		t.Errorf("expected my-logger, got %q", launcherCfg.PluginConfig.Plugins[0].Name())
 	}
 	if launcherCfg.PluginConfig.Plugins[1].Name() != "RetryAndReflectPlugin" {
 		t.Errorf("expected RetryAndReflectPlugin, got %q", launcherCfg.PluginConfig.Plugins[1].Name())
+	}
+	if launcherCfg.PluginConfig.Plugins[2].Name() != "custom-plugin-instance" {
+		t.Errorf("expected custom-plugin-instance, got %q", launcherCfg.PluginConfig.Plugins[2].Name())
 	}
 }
 

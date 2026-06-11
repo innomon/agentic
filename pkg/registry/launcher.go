@@ -53,29 +53,33 @@ func (r *Registry) BuildLauncherConfig(ctx context.Context) (*launcher.Config, e
 	for _, p := range r.cfg.Plugins {
 		var pl *plugin.Plugin
 		var err error
-		switch p.Type {
-		case "logging", "logging_plugin":
-			pl, err = loggingplugin.New(p.Name)
-		case "retry", "retry_and_reflect":
-			var opts []retryandreflect.PluginOption
-			if maxRetries, ok := p.Config["max_retries"].(int); ok {
-				opts = append(opts, retryandreflect.WithMaxRetries(maxRetries))
-			} else if maxRetriesFloat, ok := p.Config["max_retries"].(float64); ok {
-				opts = append(opts, retryandreflect.WithMaxRetries(int(maxRetriesFloat)))
-			}
-			if errIfExceeded, ok := p.Config["error_if_retry_exceeded"].(bool); ok {
-				opts = append(opts, retryandreflect.WithErrorIfRetryExceeded(errIfExceeded))
-			}
-			if scopeStr, ok := p.Config["scope"].(string); ok {
-				scope := retryandreflect.Invocation
-				if scopeStr == "global" {
-					scope = retryandreflect.Global
+		if creator, ok := GetPluginCreator(p.Type); ok {
+			pl, err = creator(ctx, p.Name, p)
+		} else {
+			switch p.Type {
+			case "logging", "logging_plugin":
+				pl, err = loggingplugin.New(p.Name)
+			case "retry", "retry_and_reflect":
+				var opts []retryandreflect.PluginOption
+				if maxRetries, ok := p.Config["max_retries"].(int); ok {
+					opts = append(opts, retryandreflect.WithMaxRetries(maxRetries))
+				} else if maxRetriesFloat, ok := p.Config["max_retries"].(float64); ok {
+					opts = append(opts, retryandreflect.WithMaxRetries(int(maxRetriesFloat)))
 				}
-				opts = append(opts, retryandreflect.WithTrackingScope(scope))
+				if errIfExceeded, ok := p.Config["error_if_retry_exceeded"].(bool); ok {
+					opts = append(opts, retryandreflect.WithErrorIfRetryExceeded(errIfExceeded))
+				}
+				if scopeStr, ok := p.Config["scope"].(string); ok {
+					scope := retryandreflect.Invocation
+					if scopeStr == "global" {
+						scope = retryandreflect.Global
+					}
+					opts = append(opts, retryandreflect.WithTrackingScope(scope))
+				}
+				pl, err = retryandreflect.New(opts...)
+			default:
+				return nil, fmt.Errorf("unknown plugin type %q", p.Type)
 			}
-			pl, err = retryandreflect.New(opts...)
-		default:
-			return nil, fmt.Errorf("unknown plugin type %q", p.Type)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to create plugin %q (type %q): %w", p.Name, p.Type, err)
