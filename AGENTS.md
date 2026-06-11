@@ -293,6 +293,7 @@ Built-in types:
 - `routing` - Role-based routing agent
 - `wasm` - WebAssembly agent
 - `gnogent` - Deterministic GnoVM agent
+- `route_generator` - Dynamic route generator for edge routing in workflows
 
 ## Wasm Tools
 

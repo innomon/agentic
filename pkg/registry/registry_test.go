@@ -1253,3 +1253,24 @@ func TestRegistryConfig(t *testing.T) {
 		t.Error("Config() should return the config passed to New()")
 	}
 }
+
+func TestLoadAgent_RouteGenerator(t *testing.T) {
+	cfg := &Config{
+		Agents: map[string]AgentEntry{
+			"rg": {
+				Name:   "rg",
+				Type:   "route_generator",
+				Config: &RouteGeneratorAgentConfig{},
+			},
+		},
+	}
+	reg := New(cfg)
+	a, err := Get[agent.Agent](context.Background(), reg, "rg")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.Name() != "rg" {
+		t.Errorf("expected rg, got %q", a.Name())
+	}
+}
+

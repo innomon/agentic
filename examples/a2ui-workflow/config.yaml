@@ -1,0 +1,178 @@
+# A2UI Workflow Example using ADK 2.0 (Workflow) Configuration
+#
+# This example showcases how to build a dynamic user interface flow
+# with A2UI (Agent-to-UI) components using an ADK 2.0 DAG workflow.
+#
+# Nodes:
+#   1. START: Entry point of the workflow.
+#   2. router: Classifies user query into one of three routes ("form", "chart", "default").
+#   3. route_node: Translates the router classification into workflow route events.
+#   4. form_generator: Generates an interactive A2UI Form.
+#   5. chart_generator: Generates a beautiful A2UI Chart.
+#   6. default_responder: Text-based fallback.
+
+root_agent: A2uiWorkflowAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  A2uiWorkflowAgent:
+    type: workflow
+    description: "An ADK 2.0 workflow demonstrating Agentic UI (A2UI) component streaming"
+    nodes:
+      - name: router
+        agent: RequestRouterAgent
+      - name: route_node
+        agent: RouteNode
+      - name: form_generator
+        agent: FormGeneratorAgent
+      - name: chart_generator
+        agent: ChartGeneratorAgent
+      - name: default_responder
+        agent: DefaultResponderAgent
+    edges:
+      - from: START
+        to: router
+      - from: router
+        to: route_node
+      - from: route_node
+        to: form_generator
+        route: "form"
+      - from: route_node
+        to: chart_generator
+        route: "chart"
+      - from: route_node
+        to: default_responder
+        route: "DEFAULT"
+
+  RequestRouterAgent:
+    description: "Classifies user intent into a route: 'form', 'chart', or 'default'"
+    model: gemini-flash
+    instruction: |
+      Classify the user's request into one of the following categories:
+      - "form": if the user wants to fill a form, register, submit feedback, or input/confirm data.
+      - "chart": if the user wants to see data visualization, charts, analytics, plots, or graphs.
+      - "default": for general conversation, questions, or anything else.
+
+      Answer with EXACTLY one word, lowercase, no punctuation: form, chart, or default.
+
+  RouteNode:
+    type: route_generator
+    description: "Routes workflow execution based on input category"
+
+  FormGeneratorAgent:
+    description: "Generates an interactive A2UI Form component for user input"
+    model: gemini-flash
+    instruction: |
+      You are the A2UI Form Generator Agent.
+      Your task is to present an interactive, beautiful HTML-form-like component using the A2UI protocol.
+      You must respond with the structured A2UI JSON payload for a form.
+
+      Here is the exact schema and sample JSON you should produce:
+      ```json
+      {
+        "surfaceUpdate": {
+          "surfaceId": "main",
+          "components": [
+            {
+              "id": "form-1",
+              "type": "a2ui.Form",
+              "props": {
+                "title": "Premium Plant Selection Form",
+                "description": "Select your preferences for the perfect botanical arrangement"
+              },
+              "children": [
+                "plant-type",
+                "delivery-date",
+                "submit-btn"
+              ]
+            },
+            {
+              "id": "plant-type",
+              "type": "a2ui.Select",
+              "props": {
+                "label": "Select Plant Type",
+                "options": [
+                  {"label": "Orchid (Premium)", "value": "orchid"},
+                  {"label": "Bonsai Tree", "value": "bonsai"},
+                  {"label": "Snake Plant", "value": "snake_plant"},
+                  {"label": "Swiss Cheese Plant (Monstera)", "value": "monstera"}
+                ]
+              }
+            },
+            {
+              "id": "delivery-date",
+              "type": "a2ui.DatePicker",
+              "props": {
+                "label": "Preferred Delivery Date"
+              }
+            },
+            {
+              "id": "submit-btn",
+              "type": "a2ui.Button",
+              "props": {
+                "label": "Confirm Order",
+                "variant": "primary"
+              },
+              "events": {
+                "onClick": "submitOrder"
+              }
+            }
+          ]
+        }
+      }
+      ```
+
+      Provide a pleasant textual greeting, and then output the A2UI JSON. Make sure the JSON is perfectly valid and formatted.
+
+  ChartGeneratorAgent:
+    description: "Generates a beautiful data visualization using A2UI Chart"
+    model: gemini-flash
+    instruction: |
+      You are the A2UI Chart Generator Agent.
+      Your task is to present a data visualization component using the A2UI protocol.
+      You must respond with the structured A2UI JSON payload for a chart.
+
+      Here is the exact schema and sample JSON you should produce:
+      ```json
+      {
+        "surfaceUpdate": {
+          "surfaceId": "main",
+          "components": [
+            {
+              "id": "sales-chart",
+              "type": "a2ui.Chart",
+              "props": {
+                "title": "Quarterly Plant Sales Growth",
+                "chartType": "line",
+                "data": [
+                  {"quarter": "Q1", "sales": 12000, "category": "Indoor Plants"},
+                  {"quarter": "Q2", "sales": 19000, "category": "Indoor Plants"},
+                  {"quarter": "Q3", "sales": 32000, "category": "Indoor Plants"},
+                  {"quarter": "Q4", "sales": 45000, "category": "Indoor Plants"}
+                ],
+                "xAxis": "quarter",
+                "yAxis": "sales"
+              }
+            }
+          ]
+        }
+      }
+      ```
+
+      Provide a pleasant textual intro, and then output the A2UI JSON. Make sure the JSON is perfectly valid and formatted.
+
+  DefaultResponderAgent:
+    description: "Handles general inquiries and text responses"
+    model: gemini-flash
+    instruction: |
+      You are the general assistant for the A2UI workflow.
+      Provide a helpful text response explaining how the user can interact with this agent.
+      Suggest that they can say:
+      - "I want to fill out the form"
+      - "Show me the quarterly sales chart"
+      to trigger the interactive A2UI components.
