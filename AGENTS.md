@@ -243,6 +243,39 @@ agents:
       - endpoint: "${MCP_SERVER_URL:-http://localhost:8082}/mcp"
 ```
 
+## Workflow (DAG) Configuration
+
+The `workflow` agent type executes Directed Acyclic Graphs (DAGs) using the ADK 2.0 workflow engine. Workflows consist of nodes (agents or tools) and edges that define conditional routing.
+
+```yaml
+agents:
+  MyWorkflowAgent:
+    type: workflow
+    description: "Classification and response flow"
+    nodes:
+      - name: classify
+        agent: ClassifierAgent
+      - name: question_handler
+        agent: QuestionAgent
+      - name: default_handler
+        agent: DefaultAgent
+    edges:
+      - from: START
+        to: classify
+      - from: classify
+        to: question_handler
+        route: "question"
+      - from: classify
+        to: default_handler
+        route: "DEFAULT"
+```
+
+Nodes can refer to either `agent` or `tool`. Edges support the following routing matches:
+- `route: "DEFAULT"` (or `default` / empty) - matches the default route when no other conditional route matches.
+- `route: "true"` / `route: "false"` - matches boolean routing outputs.
+- `route: "123"` - matches integer routing outputs.
+- Any other string - matches custom string routes emitted by the source node.
+
 ## Custom Agent Types
 
 The component registry uses Go generics for type-safe registration.
@@ -256,6 +289,7 @@ registry.RegisterAgentType("myType", func(ctx context.Context, name string, cfg 
 Built-in types:
 - `llm` (default) - Standard LLM agent
 - `sequential`, `parallel`, `loop` - Workflow orchestrators
+- `workflow` - DAG-based workflow agent
 - `routing` - Role-based routing agent
 - `wasm` - WebAssembly agent
 - `gnogent` - Deterministic GnoVM agent
