@@ -14,6 +14,7 @@ type RawConfig struct {
 	Session   *yaml.Node
 	Memory    *yaml.Node
 	Auth      *yaml.Node
+	Plugins   []*yaml.Node
 	RootAgent string
 	OpenClaw  bool
 	WebUI     bool
@@ -66,6 +67,10 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			r.Memory = val
 		case "auth":
 			r.Auth = val
+		case "plugins":
+			if val.Kind == yaml.SequenceNode {
+				r.Plugins = val.Content
+			}
 		case "root_agent":
 			r.RootAgent = val.Value
 		case "openclaw":
@@ -140,6 +145,12 @@ type JWTConfig struct {
 	Audience      string `yaml:"audience"`
 }
 
+type PluginEntry struct {
+	Type   string         `yaml:"type"`
+	Name   string         `yaml:"name"`
+	Config map[string]any `yaml:",inline"`
+}
+
 type Config struct {
 	Models    map[string]ModelEntry
 	Agents    map[string]AgentEntry
@@ -148,6 +159,7 @@ type Config struct {
 	Session   *SessionConfig
 	Memory    *MemoryConfig
 	Auth      *AuthConfig
+	Plugins   []PluginEntry
 	RootAgent string
 	OpenClaw  bool
 	WebUI     bool
@@ -261,6 +273,14 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 			return nil, fmt.Errorf("failed to parse auth config: %w", err)
 		}
 		cfg.Auth = &auth
+	}
+
+	for _, node := range raw.Plugins {
+		var entry PluginEntry
+		if err := node.Decode(&entry); err != nil {
+			return nil, fmt.Errorf("failed to parse plugin entry: %w", err)
+		}
+		cfg.Plugins = append(cfg.Plugins, entry)
 	}
 
 	return cfg, nil

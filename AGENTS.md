@@ -351,6 +351,22 @@ auth:
     audience: agentic
 ```
 
+## Plugins Configuration
+
+ADK 2.0 plugins are configured at the top level of the YAML config. The framework currently supports `logging` and `retry_and_reflect` plugins.
+
+```yaml
+plugins:
+  - type: logging
+    name: my-logger
+  - type: retry_and_reflect
+    name: RetryAndReflectPlugin
+    max_retries: 3
+    error_if_retry_exceeded: false
+    scope: invocation # or global
+```
+
+
 ## Environment Variables
 
 - `GOOGLE_API_KEY` - Required for Gemini

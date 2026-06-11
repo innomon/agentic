@@ -573,6 +573,39 @@ func TestLoadAgent_Workflow(t *testing.T) {
 	}
 }
 
+func TestBuildLauncherConfig_Plugins(t *testing.T) {
+	agentType := uniqueName(t, "agent-type")
+	cfg := &Config{
+		RootAgent: "Root",
+		Agents: map[string]AgentEntry{
+			"Root": {Name: "Root", Type: agentType, Config: &SequentialAgentConfig{}},
+		},
+		Plugins: []PluginEntry{
+			{Type: "logging", Name: "my-logger"},
+			{Type: "retry", Name: "my-retry", Config: map[string]any{"max_retries": 5, "scope": "global", "error_if_retry_exceeded": true}},
+		},
+	}
+	reg := New(cfg)
+	RegisterAgentType(agentType, func(ctx context.Context, name string, cfg *SequentialAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+		return newMockAgent(name), nil
+	})
+
+	launcherCfg, err := reg.BuildLauncherConfig(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(launcherCfg.PluginConfig.Plugins) != 2 {
+		t.Errorf("expected 2 plugins, got %d", len(launcherCfg.PluginConfig.Plugins))
+	}
+	if launcherCfg.PluginConfig.Plugins[0].Name() != "my-logger" {
+		t.Errorf("expected my-logger, got %q", launcherCfg.PluginConfig.Plugins[0].Name())
+	}
+	if launcherCfg.PluginConfig.Plugins[1].Name() != "RetryAndReflectPlugin" {
+		t.Errorf("expected RetryAndReflectPlugin, got %q", launcherCfg.PluginConfig.Plugins[1].Name())
+	}
+}
+
 func TestLoadAgent_UnknownType(t *testing.T) {
 	cfg := &Config{
 		Agents: map[string]AgentEntry{

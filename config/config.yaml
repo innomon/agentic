@@ -46,3 +46,14 @@ agents:
       You are a research and analysis assistant. Provide detailed,
       well-structured answers to complex questions. Use markdown
       formatting for clarity.
+
+# Plugins configuration (uncomment to enable)
+# plugins:
+#   - type: logging
+#     name: default-logger
+#   - type: retry_and_reflect
+#     name: RetryAndReflectPlugin
+#     max_retries: 3
+#     error_if_retry_exceeded: false
+#     scope: invocation
+
