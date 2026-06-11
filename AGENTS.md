@@ -353,8 +353,9 @@ auth:
 
 ## Plugins Configuration
 
-ADK 2.0 plugins are configured at the top level of the YAML config. The framework currently supports `logging` and `retry_and_reflect` plugins.
+ADK 2.0 plugins are configured at the top level of the YAML config. The framework supports built-in Go plugins (`logging`, `retry_and_reflect`) as well as dynamically loaded WebAssembly (WASM) plugins.
 
+### Built-in Plugins
 ```yaml
 plugins:
   - type: logging
@@ -365,6 +366,21 @@ plugins:
     error_if_retry_exceeded: false
     scope: invocation # or global
 ```
+
+### WASM Plugins
+WASM plugins run sandboxed WebAssembly binaries that map to the 12 ADK runner lifecycle hooks (e.g. `on_user_message`, `before_run`, `before_tool`, etc.) by exposing corresponding export functions.
+
+```yaml
+plugins:
+  - type: wasm
+    name: my-wasm-plugin
+    module_path: ./examples/wasm-plugin/plugin.wasm
+    config:
+      custom_param: "value"
+```
+
+For a full TinyGo WASM plugin implementation, build instructions, and config setup, see the [examples/wasm-plugin](file:///home/innomon/orez/adk/agentic/examples/wasm-plugin) directory.
+
 
 
 ## Environment Variables

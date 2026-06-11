@@ -1,0 +1,19 @@
+root_agent: RootAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+plugins:
+  - type: wasm
+    name: wasm-guardrail-plugin
+    module_path: ./examples/wasm-plugin/plugin.wasm
+
+agents:
+  RootAgent:
+    description: General-purpose assistant that routes to specialized sub-agents
+    model: gemini-flash
+    instruction: |
+      You are a helpful assistant. Keep your responses short and friendly.
