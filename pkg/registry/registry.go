@@ -96,10 +96,12 @@ func (r *Registry) Session() session.Session    { return nil }
 func (r *Registry) Input() string               { return r.input }
 func (r *Registry) InvocationID() string        { return "sandbox-root" }
 func (r *Registry) Branch() string              { return "root" }
+func (r *Registry) IsolationScope() string      { return "" }
 func (r *Registry) UserContent() *genai.Content { return nil }
 func (r *Registry) RunConfig() *agent.RunConfig { return nil }
 func (r *Registry) EndInvocation()              {}
 func (r *Registry) Ended() bool                 { return false }
+func (r *Registry) ResumedInput(interruptID string) (any, bool) { return nil, false }
 func (r *Registry) WithContext(ctx context.Context) agent.InvocationContext {
 	return &Registry{
 		cfg:       r.cfg,
@@ -134,6 +136,21 @@ func itemKey[T any](name string) string {
 	return typeOf[T]().String() + ":" + name
 }
 
+type buildingKeysKey struct{}
+
+func withBuildingKey(ctx context.Context, key string) (context.Context, error) {
+	keys, _ := ctx.Value(buildingKeysKey{}).(map[string]bool)
+	if keys[key] {
+		return nil, fmt.Errorf("circular dependency detected for agent %q", key)
+	}
+	newKeys := make(map[string]bool, len(keys)+1)
+	for k, v := range keys {
+		newKeys[k] = v
+	}
+	newKeys[key] = true
+	return context.WithValue(ctx, buildingKeysKey{}, newKeys), nil
+}
+
 func Get[T any](ctx context.Context, r *Registry, name string) (T, error) {
 	k := itemKey[T](name)
 
@@ -143,6 +160,12 @@ func Get[T any](ctx context.Context, r *Registry, name string) (T, error) {
 		return v.(T), nil
 	}
 	r.mu.RUnlock()
+
+	var zero T
+	newCtx, err := withBuildingKey(ctx, k)
+	if err != nil {
+		return zero, err
+	}
 
 	r.mu.Lock()
 	// Check again under write lock
@@ -164,27 +187,24 @@ func Get[T any](ctx context.Context, r *Registry, name string) (T, error) {
 				return v.(T), nil
 			}
 		}
-		var zero T
 		return zero, fmt.Errorf("timeout waiting for %s to be built", k)
 	}
 
 	ldr, ok := r.loaders[typeOf[T]()]
 	if !ok {
 		r.mu.Unlock()
-		var zero T
 		return zero, fmt.Errorf("no loader registered for type %s", typeOf[T]())
 	}
 
 	r.building[k] = true
 	r.mu.Unlock() // RELEASE LOCK during loading
 
-	v, err := ldr(ctx, r, name)
+	v, err := ldr(newCtx, r, name)
 
 	r.mu.Lock()
 	delete(r.building, k)
 	if err != nil {
 		r.mu.Unlock()
-		var zero T
 		return zero, err
 	}
 
@@ -374,7 +394,7 @@ func (c dummyToolContext) SearchMemory(ctx context.Context, query string) (*memo
 	return nil, fmt.Errorf("memory search not available in sandbox tool calls")
 }
 
-func (c dummyToolContext) RequestConfirmation(prompt string, metadata any) error {
+func (c dummyToolContext) RequestConfirmation(hint string, payload any) error {
 	return fmt.Errorf("confirmation not supported in sandbox tool calls")
 }
 

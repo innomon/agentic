@@ -536,6 +536,43 @@ func TestLoadAgent_WithSubAgents(t *testing.T) {
 	}
 }
 
+func TestLoadAgent_Workflow(t *testing.T) {
+	agentType := uniqueName(t, "agent-type")
+	cfg := &Config{
+		Agents: map[string]AgentEntry{
+			"wf": {
+				Name:      "wf",
+				Type:      "workflow",
+				SubAgents: []string{"Child"},
+				Config: &WorkflowAgentConfig{
+					Nodes: []WorkflowNodeEntry{
+						{Name: "classify", Agent: "Child"},
+					},
+					Edges: []WorkflowEdgeEntry{
+						{From: "START", To: "classify"},
+					},
+				},
+			},
+			"Child": {Name: "Child", Type: agentType, Config: &SequentialAgentConfig{}},
+		},
+	}
+	reg := New(cfg)
+	RegisterAgentType(agentType, func(ctx context.Context, name string, cfg *SequentialAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+		return newMockAgent(name), nil
+	})
+
+	a, err := Get[agent.Agent](context.Background(), reg, "wf")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.Name() != "wf" {
+		t.Errorf("expected wf, got %q", a.Name())
+	}
+	if len(a.SubAgents()) != 1 || a.SubAgents()[0].Name() != "Child" {
+		t.Errorf("expected Child sub-agent, got %v", a.SubAgents())
+	}
+}
+
 func TestLoadAgent_UnknownType(t *testing.T) {
 	cfg := &Config{
 		Agents: map[string]AgentEntry{

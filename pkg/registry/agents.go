@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"log"
 
+	"strconv"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
+	"google.golang.org/adk/agent/workflowagent"
 	"google.golang.org/adk/agent/workflowagents/loopagent"
 	"google.golang.org/adk/agent/workflowagents/parallelagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
 	"google.golang.org/adk/tool/mcptoolset"
+	"google.golang.org/adk/workflow"
 )
 
 type AgentBase struct {
@@ -124,9 +128,114 @@ func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRe
 	})
 }
 
+type WorkflowNodeEntry struct {
+	Name  string `yaml:"name"`
+	Agent string `yaml:"agent"`
+	Tool  string `yaml:"tool"`
+}
+
+type WorkflowEdgeEntry struct {
+	From  string `yaml:"from"`
+	To    string `yaml:"to"`
+	Route string `yaml:"route"`
+}
+
+type WorkflowAgentConfig struct {
+	AgentBase `yaml:",inline"`
+	Nodes     []WorkflowNodeEntry `yaml:"nodes"`
+	Edges     []WorkflowEdgeEntry `yaml:"edges"`
+}
+
+func (c *WorkflowAgentConfig) GetSubAgents() []string {
+	var subs []string
+	for _, n := range c.Nodes {
+		if n.Agent != "" {
+			subs = append(subs, n.Agent)
+		}
+	}
+	return subs
+}
+
+func parseRoute(r string) workflow.Route {
+	if r == "DEFAULT" || r == "default" || r == "" {
+		return workflow.Default
+	}
+	if b, err := strconv.ParseBool(r); err == nil {
+		return workflow.BoolRoute(b)
+	}
+	if i, err := strconv.Atoi(r); err == nil {
+		return workflow.IntRoute(i)
+	}
+	return workflow.StringRoute(r)
+}
+
+func workflowCreator(ctx context.Context, name string, cfg *WorkflowAgentConfig, models ModelRegistry, tools ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
+	agentMap := make(map[string]agent.Agent)
+	for i, subName := range cfg.GetSubAgents() {
+		agentMap[subName] = sub[i]
+	}
+
+	nodesMap := make(map[string]workflow.Node)
+	nodesMap["START"] = workflow.Start
+	nodesMap["start"] = workflow.Start
+
+	for _, n := range cfg.Nodes {
+		var wfNode workflow.Node
+		if n.Agent != "" {
+			ag, ok := agentMap[n.Agent]
+			if !ok {
+				return nil, fmt.Errorf("sub-agent %q not found in resolved sub-agents", n.Agent)
+			}
+			var err error
+			wfNode, err = workflow.NewAgentNode(ag, workflow.NodeConfig{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create agent node %q: %w", n.Name, err)
+			}
+		} else if n.Tool != "" {
+			tList, err := tools.GetMultiple(ctx, []string{n.Tool})
+			if err != nil || len(tList) == 0 {
+				return nil, fmt.Errorf("failed to get tool %q for node %q: %w", n.Tool, n.Name, err)
+			}
+			var errNode error
+			wfNode, errNode = workflow.NewToolNode(tList[0], workflow.NodeConfig{})
+			if errNode != nil {
+				return nil, fmt.Errorf("failed to create tool node %q: %w", n.Name, errNode)
+			}
+		} else {
+			return nil, fmt.Errorf("node %q must specify either agent or tool", n.Name)
+		}
+		nodesMap[n.Name] = wfNode
+	}
+
+	var edges []workflow.Edge
+	for _, e := range cfg.Edges {
+		fromNode, ok := nodesMap[e.From]
+		if !ok {
+			return nil, fmt.Errorf("edge from %q: node not found", e.From)
+		}
+		toNode, ok := nodesMap[e.To]
+		if !ok {
+			return nil, fmt.Errorf("edge to %q: node not found", e.To)
+		}
+		edges = append(edges, workflow.Edge{
+			From:  fromNode,
+			To:    toNode,
+			Route: parseRoute(e.Route),
+		})
+	}
+
+	return workflowagent.New(workflowagent.Config{
+		Name:        name,
+		Description: cfg.Description,
+		SubAgents:   sub,
+		Edges:       edges,
+	})
+}
+
 func init() {
 	RegisterAgentType("llm", llmCreator)
 	RegisterAgentType("sequential", sequentialCreator)
 	RegisterAgentType("parallel", parallelCreator)
 	RegisterAgentType("loop", loopCreator)
+	RegisterAgentType("workflow", workflowCreator)
 }

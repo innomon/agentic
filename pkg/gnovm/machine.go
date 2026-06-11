@@ -53,7 +53,7 @@ func (c DummyToolContext) Actions() *session.EventActions            { return ni
 func (c DummyToolContext) SearchMemory(ctx context.Context, query string) (*memory.SearchResponse, error) {
 	return nil, fmt.Errorf("memory search not available in gnovm tool calls")
 }
-func (c DummyToolContext) RequestConfirmation(prompt string, metadata any) error {
+func (c DummyToolContext) RequestConfirmation(hint string, payload any) error {
 	return fmt.Errorf("confirmation not supported in gnovm tool calls")
 }
 func (c DummyToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation {

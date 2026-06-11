@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/a2aproject/a2a-go/a2asrv"
+	"github.com/a2aproject/a2a-go/v2/a2asrv"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -143,30 +143,32 @@ type JWTInterceptor struct {
 	Verifier *JWTVerifier
 }
 
-func (i *JWTInterceptor) Before(ctx context.Context, callCtx *a2asrv.CallContext, req *a2asrv.Request) (context.Context, error) {
+func (i *JWTInterceptor) Before(ctx context.Context, callCtx *a2asrv.CallContext, req *a2asrv.Request) (context.Context, any, error) {
 	if os.Getenv("BYPASS_AUTH") == "true" {
-		callCtx.User = &a2asrv.AuthenticatedUser{
-			UserName: "local-dev",
+		callCtx.User = &a2asrv.User{
+			Name:          "local-dev",
+			Authenticated: true,
 		}
-		return ctx, nil
+		return ctx, nil, nil
 	}
 
-	authHeader, ok := callCtx.RequestMeta().Get("Authorization")
+	authHeader, ok := callCtx.ServiceParams().Get("Authorization")
 	if !ok || len(authHeader) == 0 || !strings.HasPrefix(authHeader[0], "Bearer ") {
-		return ctx, fmt.Errorf("missing or invalid Authorization header")
+		return ctx, nil, fmt.Errorf("missing or invalid Authorization header")
 	}
 
 	tokenStr := strings.TrimPrefix(authHeader[0], "Bearer ")
 	claims, err := i.Verifier.Verify(tokenStr)
 	if err != nil {
-		return ctx, err
+		return ctx, nil, err
 	}
 
-	callCtx.User = &a2asrv.AuthenticatedUser{
-		UserName: claims.UserID,
+	callCtx.User = &a2asrv.User{
+		Name:          claims.UserID,
+		Authenticated: true,
 	}
 
-	return context.WithValue(ctx, claimsContextKey{}, claims), nil
+	return context.WithValue(ctx, claimsContextKey{}, claims), nil, nil
 }
 
 func (i *JWTInterceptor) After(ctx context.Context, callCtx *a2asrv.CallContext, resp *a2asrv.Response) error {
