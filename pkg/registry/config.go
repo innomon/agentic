@@ -15,6 +15,7 @@ type RawConfig struct {
 	Memory    *yaml.Node
 	Auth      *yaml.Node
 	Plugins   []*yaml.Node
+	Logging   *yaml.Node
 	RootAgent string
 	OpenClaw  bool
 	WebUI     bool
@@ -67,6 +68,8 @@ func (r *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 			r.Memory = val
 		case "auth":
 			r.Auth = val
+		case "logging":
+			r.Logging = val
 		case "plugins":
 			if val.Kind == yaml.SequenceNode {
 				r.Plugins = val.Content
@@ -145,6 +148,16 @@ type JWTConfig struct {
 	Audience      string `yaml:"audience"`
 }
 
+type LoggingConfig struct {
+	Level      string `yaml:"level"`
+	Console    bool   `yaml:"console"`
+	File       bool   `yaml:"file"`
+	Dir        string `yaml:"dir"`
+	Filename   string `yaml:"filename"`
+	MaxSizeMB  int    `yaml:"max_size_mb"`
+	MaxBackups int    `yaml:"max_backups"`
+}
+
 type PluginEntry struct {
 	Type   string         `yaml:"type"`
 	Name   string         `yaml:"name"`
@@ -160,6 +173,7 @@ type Config struct {
 	Memory    *MemoryConfig
 	Auth      *AuthConfig
 	Plugins   []PluginEntry
+	Logging   *LoggingConfig
 	RootAgent string
 	OpenClaw  bool
 	WebUI     bool
@@ -281,6 +295,14 @@ func ParseRaw(raw *RawConfig) (*Config, error) {
 			return nil, fmt.Errorf("failed to parse plugin entry: %w", err)
 		}
 		cfg.Plugins = append(cfg.Plugins, entry)
+	}
+
+	if raw.Logging != nil {
+		var logCfg LoggingConfig
+		if err := raw.Logging.Decode(&logCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse logging config: %w", err)
+		}
+		cfg.Logging = &logCfg
 	}
 
 	return cfg, nil

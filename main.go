@@ -5,11 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/innomon/agentic/pkg/auth"
 	"github.com/innomon/agentic/pkg/config"
 	"github.com/innomon/agentic/pkg/console"
+	"github.com/innomon/agentic/pkg/logger"
 	_ "github.com/innomon/agentic/pkg/gnogent"
 	_ "github.com/innomon/agentic/pkg/ml"
 	openclawlauncher "github.com/innomon/agentic/pkg/openclaw/launcher"
@@ -64,6 +66,29 @@ func main() {
 			log.Fatalf("Failed to load config: %v", err)
 		}
 	}
+
+	// Initialize structured logger
+	logCfg := logger.Config{
+		Level:          "INFO",
+		ConsoleEnabled: true,
+		FileEnabled:    false,
+	}
+	if cfg.Logging != nil {
+		logCfg.Level = cfg.Logging.Level
+		logCfg.ConsoleEnabled = cfg.Logging.Console
+		logCfg.FileEnabled = cfg.Logging.File
+		logCfg.Dir = cfg.Logging.Dir
+		logCfg.FileName = cfg.Logging.Filename
+		logCfg.MaxSizeMB = cfg.Logging.MaxSizeMB
+		logCfg.MaxBackups = cfg.Logging.MaxBackups
+	}
+	if _, err := logger.Init(logCfg); err != nil {
+		log.Fatalf("Failed to initialize structured logger: %v", err)
+	}
+
+	// Redirect standard log library to our structured logger
+	log.SetFlags(0)
+	log.SetOutput(slog.NewLogLogger(logger.Log.Handler(), slog.LevelInfo).Writer())
 
 	if *runMsg != "" {
 		reg := registry.New(cfg).WithInput(*runMsg)

@@ -47,6 +47,16 @@ agents:
       well-structured answers to complex questions. Use markdown
       formatting for clarity.
 
+# Structured Logging Configuration
+logging:
+  level: INFO       # DEBUG, INFO, WARN, ERROR
+  console: true     # Enable/disable text console logging
+  file: false       # Enable/disable JSONL file logging
+  dir: logs         # Directory for log files
+  filename: agentic.log
+  max_size_mb: 10   # Max size of log file before rotation
+  max_backups: 5    # Max number of rotated backup files to keep
+
 # Plugins configuration (uncomment to enable)
 # plugins:
 #   - type: logging
