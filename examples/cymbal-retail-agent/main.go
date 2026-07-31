@@ -22,12 +22,12 @@ import (
 	_ "github.com/innomon/agentic/pkg/wasm"
 
 	"github.com/a2aproject/a2a-go/v2/a2asrv"
-	adklauncher "google.golang.org/adk/cmd/launcher"
-	"google.golang.org/adk/cmd/launcher/universal"
-	"google.golang.org/adk/cmd/launcher/web"
-	"google.golang.org/adk/cmd/launcher/web/a2a"
-	"google.golang.org/adk/cmd/launcher/web/api"
-	"google.golang.org/adk/cmd/launcher/web/webui"
+	adklauncher "google.golang.org/adk/v2/cmd/launcher"
+	"google.golang.org/adk/v2/cmd/launcher/universal"
+	"google.golang.org/adk/v2/cmd/launcher/web"
+	"google.golang.org/adk/v2/cmd/launcher/web/a2a"
+	"google.golang.org/adk/v2/cmd/launcher/web/api"
+	"google.golang.org/adk/v2/cmd/launcher/web/webui"
 )
 
 func init() {

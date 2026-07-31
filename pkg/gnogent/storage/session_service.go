@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/adk/session"
+	"google.golang.org/adk/v2/session"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

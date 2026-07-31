@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gnolang/gno/gnovm/pkg/gnolang"
 	"github.com/gnolang/gno/tm2/pkg/amino"
@@ -11,11 +12,11 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/db/memdb"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/gno/tm2/pkg/store/dbadapter"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/toolconfirmation"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/session"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/toolconfirmation"
 	"google.golang.org/genai"
 )
 
@@ -30,14 +31,15 @@ type AgentContext struct {
 type FunctionTool interface {
 	tool.Tool
 	Declaration() *genai.FunctionDeclaration
-	Run(ctx tool.Context, args any) (result map[string]any, err error)
+	Run(ctx agent.Context, args any) (result map[string]any, err error)
 }
 
-// DummyToolContext provides a minimal tool.Context for tools called from GnoVM.
+// DummyToolContext provides a minimal agent.Context for tools called from GnoVM.
 type DummyToolContext struct {
 	context.Context
 }
 
+func (c DummyToolContext) Agent() agent.Agent                       { return nil }
 func (c DummyToolContext) UserContent() *genai.Content               { return nil }
 func (c DummyToolContext) InvocationID() string                      { return "gnovm-call" }
 func (c DummyToolContext) AgentName() string                         { return "gnovm-agent" }
@@ -46,6 +48,22 @@ func (c DummyToolContext) UserID() string                            { return "g
 func (c DummyToolContext) AppName() string                           { return "gnovm-app" }
 func (c DummyToolContext) SessionID() string                         { return "gnovm-session" }
 func (c DummyToolContext) Branch() string                            { return "root" }
+func (c DummyToolContext) IsolationScope() string                    { return "" }
+func (c DummyToolContext) Memory() agent.Memory                      { return nil }
+func (c DummyToolContext) Session() session.Session                  { return nil }
+func (c DummyToolContext) RunConfig() *agent.RunConfig               { return nil }
+func (c DummyToolContext) EndInvocation()                            {}
+func (c DummyToolContext) Ended() bool                               { return false }
+func (c DummyToolContext) ResumedInput(id string) (any, bool)        { return nil, false }
+func (c DummyToolContext) OutputForAncestors() []string              { return nil }
+func (c DummyToolContext) Path() string                               { return "" }
+func (c DummyToolContext) RunID() string                              { return "" }
+func (c DummyToolContext) SubScheduler() agent.DynamicSubScheduler    { return nil }
+func (c DummyToolContext) WithAgentContext(ctx context.Context) agent.Context { return DummyToolContext{Context: ctx} }
+func (c DummyToolContext) WithAgentTimeout(timeout time.Duration) (agent.Context, context.CancelFunc) { return c, func() {} }
+func (c DummyToolContext) WithAgentCancel() (agent.Context, context.CancelFunc) { return c, func() {} }
+func (c DummyToolContext) WithDelta(d *agent.CommonContextDelta) agent.Context { return c }
+func (c DummyToolContext) WithICDelta(d *agent.InvocationContextDelta) agent.InvocationContext { return c }
 func (c DummyToolContext) Artifacts() agent.Artifacts                { return nil }
 func (c DummyToolContext) State() session.State                      { return nil }
 func (c DummyToolContext) FunctionCallID() string                    { return "gnovm-call" }
@@ -59,7 +77,7 @@ func (c DummyToolContext) RequestConfirmation(hint string, payload any) error {
 func (c DummyToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation {
 	return nil
 }
-func (c DummyToolContext) WithContext(ctx context.Context) tool.Context {
+func (c DummyToolContext) WithContext(ctx context.Context) agent.InvocationContext {
 	return DummyToolContext{Context: ctx}
 }
 

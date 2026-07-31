@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/session"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/session"
 	"google.golang.org/genai"
 )
 
@@ -89,9 +89,12 @@ func main() {}
 	if err := os.WriteFile(srcPath, []byte(guestCode), 0644); err != nil {
 		t.Fatalf("failed to write guest src: %v", err)
 	}
+	_ = os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module testplugin\n\ngo 1.25.0\n"), 0644)
 
 	wasmPath := filepath.Join(tmpDir, "plugin.wasm")
-	cmd := exec.Command("tinygo", "build", "-o", wasmPath, "-target", "wasi", "-buildmode", "c-shared", srcPath)
+	cmd := exec.Command("tinygo", "build", "-o", wasmPath, "-target", "wasi", "-buildmode", "c-shared", "plugin.go")
+	cmd.Dir = tmpDir
+	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=go1.25.6")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to compile wasm plugin: %v\nOutput: %s", err, string(out))
 	}
@@ -162,6 +165,8 @@ func (c *mockInvocationContext) RunConfig() *agent.RunConfig { return nil }
 func (c *mockInvocationContext) EndInvocation()              {}
 func (c *mockInvocationContext) Ended() bool                 { return false }
 func (c *mockInvocationContext) ResumedInput(interruptID string) (any, bool) { return nil, false }
+func (c *mockInvocationContext) OutputForAncestors() []string { return nil }
+func (c *mockInvocationContext) WithICDelta(d *agent.InvocationContextDelta) agent.InvocationContext { return c }
 func (c *mockInvocationContext) WithContext(ctx context.Context) agent.InvocationContext {
 	return &mockInvocationContext{ctx: ctx, session: c.session, input: c.input}
 }

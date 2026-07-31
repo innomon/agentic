@@ -3,6 +3,7 @@
 /clawgate
 /initdb
 /gemini-ls
+/openai-proxy/openai-proxy
 *.exe
 *.exe~
 *.dll

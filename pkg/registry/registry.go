@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/innomon/agentic/pkg/sandbox"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/toolconfirmation"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/session"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/toolconfirmation"
 	"google.golang.org/genai"
 )
 
@@ -102,6 +102,8 @@ func (r *Registry) RunConfig() *agent.RunConfig { return nil }
 func (r *Registry) EndInvocation()              {}
 func (r *Registry) Ended() bool                 { return false }
 func (r *Registry) ResumedInput(interruptID string) (any, bool) { return nil, false }
+func (r *Registry) OutputForAncestors() []string { return nil }
+func (r *Registry) WithICDelta(d *agent.InvocationContextDelta) agent.InvocationContext { return r }
 func (r *Registry) WithContext(ctx context.Context) agent.InvocationContext {
 	return &Registry{
 		cfg:       r.cfg,
@@ -365,31 +367,48 @@ func (a *toolAdapter) CallTool(ctx context.Context, name string, args map[string
 }
 
 // functionTool defines the interface we expect from ADK tools to execute them.
-// This is a copy of google.golang.org/adk/internal/toolinternal.FunctionTool
+// This is a copy of google.golang.org/adk/v2/internal/toolinternal.FunctionTool
 // to avoid importing an internal package.
 type functionTool interface {
 	tool.Tool
 	Declaration() *genai.FunctionDeclaration
-	Run(ctx tool.Context, args any) (result map[string]any, err error)
+	Run(ctx agent.Context, args any) (result map[string]any, err error)
 }
 
-// dummyToolContext provides a minimal tool.Context for tools called from sandboxes/registry.
+// dummyToolContext provides a minimal agent.Context for tools called from sandboxes/registry.
 type dummyToolContext struct {
 	context.Context
 }
 
-func (c dummyToolContext) UserContent() *genai.Content        { return nil }
-func (c dummyToolContext) InvocationID() string               { return "sandbox-root" }
-func (c dummyToolContext) AgentName() string                  { return "sandbox-agent" }
-func (c dummyToolContext) ReadonlyState() session.ReadonlyState { return nil }
-func (c dummyToolContext) UserID() string                     { return "sandbox-user" }
-func (c dummyToolContext) AppName() string                    { return "sandbox-app" }
-func (c dummyToolContext) SessionID() string                  { return "sandbox-session" }
-func (c dummyToolContext) Branch() string                     { return "root" }
-func (c dummyToolContext) Artifacts() agent.Artifacts         { return nil }
-func (c dummyToolContext) State() session.State               { return nil }
-func (c dummyToolContext) FunctionCallID() string             { return "sandbox-call" }
-func (c dummyToolContext) Actions() *session.EventActions     { return nil }
+func (c dummyToolContext) Agent() agent.Agent                        { return nil }
+func (c dummyToolContext) UserContent() *genai.Content               { return nil }
+func (c dummyToolContext) InvocationID() string                      { return "sandbox-root" }
+func (c dummyToolContext) AgentName() string                         { return "sandbox-agent" }
+func (c dummyToolContext) ReadonlyState() session.ReadonlyState      { return nil }
+func (c dummyToolContext) UserID() string                            { return "sandbox-user" }
+func (c dummyToolContext) AppName() string                           { return "sandbox-app" }
+func (c dummyToolContext) SessionID() string                         { return "sandbox-session" }
+func (c dummyToolContext) Branch() string                            { return "root" }
+func (c dummyToolContext) IsolationScope() string                    { return "" }
+func (c dummyToolContext) Memory() agent.Memory                      { return nil }
+func (c dummyToolContext) Session() session.Session                  { return nil }
+func (c dummyToolContext) RunConfig() *agent.RunConfig               { return nil }
+func (c dummyToolContext) EndInvocation()                            {}
+func (c dummyToolContext) Ended() bool                               { return false }
+func (c dummyToolContext) ResumedInput(id string) (any, bool)        { return nil, false }
+func (c dummyToolContext) OutputForAncestors() []string              { return nil }
+func (c dummyToolContext) Path() string                               { return "" }
+func (c dummyToolContext) RunID() string                              { return "" }
+func (c dummyToolContext) SubScheduler() agent.DynamicSubScheduler    { return nil }
+func (c dummyToolContext) WithAgentContext(ctx context.Context) agent.Context { return dummyToolContext{Context: ctx} }
+func (c dummyToolContext) WithAgentTimeout(timeout time.Duration) (agent.Context, context.CancelFunc) { return c, func() {} }
+func (c dummyToolContext) WithAgentCancel() (agent.Context, context.CancelFunc) { return c, func() {} }
+func (c dummyToolContext) WithDelta(d *agent.CommonContextDelta) agent.Context { return c }
+func (c dummyToolContext) WithICDelta(d *agent.InvocationContextDelta) agent.InvocationContext { return c }
+func (c dummyToolContext) Artifacts() agent.Artifacts                { return nil }
+func (c dummyToolContext) State() session.State                      { return nil }
+func (c dummyToolContext) FunctionCallID() string                    { return "sandbox-call" }
+func (c dummyToolContext) Actions() *session.EventActions            { return nil }
 func (c dummyToolContext) SearchMemory(ctx context.Context, query string) (*memory.SearchResponse, error) {
 	return nil, fmt.Errorf("memory search not available in sandbox tool calls")
 }
@@ -402,6 +421,6 @@ func (c dummyToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation 
 	return nil
 }
 
-func (c dummyToolContext) WithContext(ctx context.Context) tool.Context {
+func (c dummyToolContext) WithContext(ctx context.Context) agent.InvocationContext {
 	return dummyToolContext{Context: ctx}
 }

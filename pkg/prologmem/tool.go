@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/innomon/agentic/pkg/registry"
-	adkmemory "google.golang.org/adk/memory"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/v2/agent"
+	adkmemory "google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
 )
 
 // LogicQueryToolConfig is the YAML config for a logic_query tool.
@@ -56,7 +57,7 @@ func logicQueryToolCreator(_ context.Context, name string, cfg *LogicQueryToolCo
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
-	}, func(ctx tool.Context, args map[string]any) (any, error) {
+	}, func(ctx agent.Context, args map[string]any) (any, error) {
 		action, _ := args["action"].(string)
 		query, _ := args["query"].(string)
 		if query == "" {

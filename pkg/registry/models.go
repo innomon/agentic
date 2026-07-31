@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	adkopenai "github.com/byebyebruce/adk-go-openai"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/model/gemini"
+	"google.golang.org/adk/v2/model/openaimodel"
 	"google.golang.org/genai"
 )
 
@@ -49,6 +49,7 @@ func (c *GeminiConfig) Validate() error {
 type OpenAIConfig struct {
 	ModelBase `yaml:",inline"`
 	APIKey    string `yaml:"api_key"`
+	BaseURL   string `yaml:"base_url"`
 }
 
 func (c *OpenAIConfig) Validate() error {
@@ -94,9 +95,13 @@ func geminiCreator(ctx context.Context, cfg *GeminiConfig) (model.LLM, error) {
 	return gemini.NewModel(ctx, ExpandEnvWithDefaults(cfg.ModelID), clientCfg)
 }
 
-func openaiCreator(_ context.Context, cfg *OpenAIConfig) (model.LLM, error) {
+func openaiCreator(ctx context.Context, cfg *OpenAIConfig) (model.LLM, error) {
 	apiKey := ExpandEnvWithDefaults(cfg.APIKey)
-	return adkopenai.NewOpenAIModelWithAPIKey(ExpandEnvWithDefaults(cfg.ModelID), apiKey), nil
+	baseURL := ExpandEnvWithDefaults(cfg.BaseURL)
+	return openaimodel.NewModel(ctx, ExpandEnvWithDefaults(cfg.ModelID), &openaimodel.ClientConfig{
+		APIKey:  apiKey,
+		BaseURL: baseURL,
+	})
 }
 
 func ollamaCreator(_ context.Context, cfg *OllamaConfig) (model.LLM, error) {

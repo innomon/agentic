@@ -5,8 +5,8 @@ import (
 	"reflect"
 
 	"github.com/gnolang/gno/gnovm/pkg/gnolang"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/tool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
 )
 
 func init() {

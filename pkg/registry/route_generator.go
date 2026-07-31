@@ -5,8 +5,8 @@ import (
 	"iter"
 	"strings"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/session"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/session"
 )
 
 type RouteGeneratorAgentConfig struct {
@@ -27,7 +27,7 @@ func routeGeneratorCreator(_ context.Context, name string, cfg *RouteGeneratorAg
 				category := strings.ToLower(inputVal)
 				category = strings.TrimRight(category, ".")
 
-				ev := session.NewEvent(ctx.InvocationID())
+				ev := session.NewEvent(ctx, ctx.InvocationID())
 				ev.Routes = []string{category}
 				ev.Output = category
 

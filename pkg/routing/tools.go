@@ -9,8 +9,9 @@ import (
 	"github.com/innomon/agentic/pkg/auth"
 	"github.com/innomon/agentic/pkg/registry"
 	"github.com/innomon/agentic/pkg/userdb"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
 	"gorm.io/gorm"
 )
 
@@ -96,11 +97,11 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 	}
 	db.SetAdminUsers(cfg.AdminUsers)
 
-	var handler func(ctx tool.Context, args map[string]any) (any, error)
+	var handler func(ctx agent.Context, args map[string]any) (any, error)
 
 	switch cfg.Op {
 	case "get_profile":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")
@@ -131,7 +132,7 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 		}
 
 	case "create_user":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")
@@ -177,7 +178,7 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 		}
 
 	case "update_status":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")
@@ -193,7 +194,7 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 		}
 
 	case "update_roles":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")
@@ -213,7 +214,7 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 		}
 
 	case "update_channels":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")
@@ -233,7 +234,7 @@ func userdbToolCreator(_ context.Context, name string, cfg *UserDBToolConfig, _ 
 		}
 
 	case "delete_user":
-		handler = func(ctx tool.Context, args map[string]any) (any, error) {
+		handler = func(ctx agent.Context, args map[string]any) (any, error) {
 			userID, _ := args["user_id"].(string)
 			if userID == "" {
 				return nil, fmt.Errorf("user_id is required")

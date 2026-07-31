@@ -7,7 +7,7 @@ import (
 
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"github.com/innomon/agentic/pkg/memory"
-	adkmemory "google.golang.org/adk/memory"
+	adkmemory "google.golang.org/adk/v2/memory"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

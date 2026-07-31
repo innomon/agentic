@@ -7,9 +7,10 @@ import (
 
 	"github.com/innomon/agentic/pkg/compreg"
 	"github.com/innomon/agentic/pkg/sandbox"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
-	"google.golang.org/adk/tool/geminitool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
+	"google.golang.org/adk/v2/tool/geminitool"
 	"gopkg.in/yaml.v3"
 )
 
@@ -114,7 +115,7 @@ func builtinToolCreator(_ context.Context, name string, cfg *BuiltinToolConfig, 
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
-	}, func(ctx tool.Context, args map[string]any) (any, error) {
+	}, func(ctx agent.Context, args map[string]any) (any, error) {
 		handler, ok := GetToolHandler(name)
 		if !ok {
 			return nil, fmt.Errorf("no handler registered for tool %q", name)
@@ -184,7 +185,7 @@ func sandboxToolCreator(ctx context.Context, name string, cfg *SandboxToolConfig
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
-	}, func(ctx tool.Context, args SandboxRunArgs) (any, error) {
+	}, func(ctx agent.Context, args SandboxRunArgs) (any, error) {
 		sandboxName := args.Sandbox
 		if sandboxName == "" {
 			sandboxName = name

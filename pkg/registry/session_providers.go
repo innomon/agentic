@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/innomon/agentic/pkg/gnogent/storage"
-	"google.golang.org/adk/session"
-	sessiondb "google.golang.org/adk/session/database"
+	"google.golang.org/adk/v2/session"
+	sessiondb "google.golang.org/adk/v2/session/database"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

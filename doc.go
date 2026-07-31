@@ -1,5 +1,5 @@
 // Package main implements the Agentic framework — a config-driven multi-agent
-// system built on Google's ADK-Go (google.golang.org/adk).
+// system built on Google's ADK-Go (google.golang.org/adk/v2).
 //
 // Agentic lets you define agents, models, tools, and workflows entirely in YAML
 // configuration files and extend the system with WebAssembly plugins at runtime,

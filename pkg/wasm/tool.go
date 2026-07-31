@@ -11,8 +11,9 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
 )
 
 type WasmToolConfig struct {
@@ -81,7 +82,7 @@ func wasmToolCreator(ctx context.Context, name string, cfg *WasmToolConfig, _ re
 	return functiontool.New(functiontool.Config{
 		Name:        name,
 		Description: cfg.Description,
-	}, func(toolCtx tool.Context, args map[string]any) (any, error) {
+	}, func(toolCtx agent.Context, args map[string]any) (any, error) {
 		return executeWasmTool(toolCtx, wasmBytes, &policy, name, args)
 	})
 }

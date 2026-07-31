@@ -10,8 +10,8 @@ import (
 
 	"github.com/innomon/agentic/pkg/openclaw/server"
 
-	adklauncher "google.golang.org/adk/cmd/launcher"
-	weblauncher "google.golang.org/adk/cmd/launcher/web"
+	adklauncher "google.golang.org/adk/v2/cmd/launcher"
+	weblauncher "google.golang.org/adk/v2/cmd/launcher/web"
 )
 
 type openclawConfig struct {

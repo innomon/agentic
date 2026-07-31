@@ -9,10 +9,10 @@ import (
 	"github.com/innomon/agentic/pkg/gnovm"
 	"github.com/innomon/agentic/pkg/gnogent/storage"
 	"github.com/innomon/agentic/pkg/registry"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/session"
+	"google.golang.org/adk/v2/tool"
 	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -156,7 +156,7 @@ func newGnoRun(db *gorm.DB, vm *gnovm.AgentWrapper, sub []agent.Agent, tools []t
 				})
 			}
 
-			event := session.NewEvent(invCtx.InvocationID())
+			event := session.NewEvent(invCtx, invCtx.InvocationID())
 			event.LLMResponse = model.LLMResponse{
 				Content: genai.NewContentFromText(response, genai.RoleModel),
 			}

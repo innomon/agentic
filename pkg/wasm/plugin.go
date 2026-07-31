@@ -12,11 +12,11 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/plugin"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/plugin"
+	"google.golang.org/adk/v2/session"
+	"google.golang.org/adk/v2/tool"
 	"google.golang.org/genai"
 )
 
@@ -51,7 +51,7 @@ type CallbackContextJSON struct {
 	AgentName    string `json:"agent_name"`
 }
 
-func toCallbackContextJSON(ctx agent.CallbackContext) CallbackContextJSON {
+func toCallbackContextJSON(ctx agent.Context) CallbackContextJSON {
 	return CallbackContextJSON{
 		InvocationID: ctx.InvocationID(),
 		SessionID:    ctx.SessionID(),
@@ -72,7 +72,7 @@ type ToolContextJSON struct {
 	FunctionCallID string `json:"function_call_id"`
 }
 
-func toToolContextJSON(ctx agent.ToolContext) ToolContextJSON {
+func toToolContextJSON(ctx agent.Context) ToolContextJSON {
 	return ToolContextJSON{
 		InvocationID:   ctx.InvocationID(),
 		SessionID:      ctx.SessionID(),
@@ -411,7 +411,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("before_agent") != nil {
-		pConfig.BeforeAgentCallback = func(cc agent.CallbackContext) (*genai.Content, error) {
+		pConfig.BeforeAgentCallback = func(cc agent.Context) (*genai.Content, error) {
 			input := BeforeAgentInput{
 				Context: toCallbackContextJSON(cc),
 			}
@@ -430,7 +430,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("after_agent") != nil {
-		pConfig.AfterAgentCallback = func(cc agent.CallbackContext) (*genai.Content, error) {
+		pConfig.AfterAgentCallback = func(cc agent.Context) (*genai.Content, error) {
 			input := AfterAgentInput{
 				Context: toCallbackContextJSON(cc),
 			}
@@ -449,7 +449,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("before_model") != nil {
-		pConfig.BeforeModelCallback = func(cc agent.CallbackContext, req *model.LLMRequest) (*model.LLMResponse, error) {
+		pConfig.BeforeModelCallback = func(cc agent.Context, req *model.LLMRequest) (*model.LLMResponse, error) {
 			input := BeforeModelInput{
 				Context: toCallbackContextJSON(cc),
 				Request: req,
@@ -469,7 +469,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("after_model") != nil {
-		pConfig.AfterModelCallback = func(cc agent.CallbackContext, resp *model.LLMResponse, err error) (*model.LLMResponse, error) {
+		pConfig.AfterModelCallback = func(cc agent.Context, resp *model.LLMResponse, err error) (*model.LLMResponse, error) {
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -494,7 +494,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("on_model_error") != nil {
-		pConfig.OnModelErrorCallback = func(cc agent.CallbackContext, req *model.LLMRequest, err error) (*model.LLMResponse, error) {
+		pConfig.OnModelErrorCallback = func(cc agent.Context, req *model.LLMRequest, err error) (*model.LLMResponse, error) {
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -519,7 +519,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("before_tool") != nil {
-		pConfig.BeforeToolCallback = func(tc agent.ToolContext, t tool.Tool, args map[string]any) (map[string]any, error) {
+		pConfig.BeforeToolCallback = func(tc agent.Context, t tool.Tool, args map[string]any) (map[string]any, error) {
 			input := BeforeToolInput{
 				Context:  toToolContextJSON(tc),
 				ToolName: t.Name(),
@@ -540,7 +540,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("after_tool") != nil {
-		pConfig.AfterToolCallback = func(tc agent.ToolContext, t tool.Tool, args, result map[string]any, err error) (map[string]any, error) {
+		pConfig.AfterToolCallback = func(tc agent.Context, t tool.Tool, args, result map[string]any, err error) (map[string]any, error) {
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -567,7 +567,7 @@ func NewWasmPlugin(ctx context.Context, name string, modulePath string, pluginCo
 	}
 
 	if mod.ExportedFunction("on_tool_error") != nil {
-		pConfig.OnToolErrorCallback = func(tc agent.ToolContext, t tool.Tool, args map[string]any, err error) (map[string]any, error) {
+		pConfig.OnToolErrorCallback = func(tc agent.Context, t tool.Tool, args map[string]any, err error) (map[string]any, error) {
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
