@@ -1,3 +1,4 @@
+// Package routing provides role-based user routing agent implementations.
 package routing
 
 import (
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/adk/v2/agent/llmagent"
 )
 
+// RoutingAgentConfig defines the YAML configuration parameters for a routing agent.
 type RoutingAgentConfig struct {
 	registry.AgentBase `yaml:",inline"`
 	Model              string            `yaml:"model"`
@@ -19,6 +21,7 @@ type RoutingAgentConfig struct {
 	RoleRoutes         map[string]string `yaml:"role_routes"`
 }
 
+// Validate checks whether the RoutingAgentConfig contains all required fields.
 func (c *RoutingAgentConfig) Validate() error {
 	if c.Model == "" {
 		return fmt.Errorf("model is required for routing agent")
@@ -29,6 +32,7 @@ func (c *RoutingAgentConfig) Validate() error {
 	return nil
 }
 
+// routingCreator instantiates a new routing LLM agent based on the provided configuration.
 func routingCreator(ctx context.Context, name string, cfg *RoutingAgentConfig, models registry.ModelRegistry, tools registry.ToolRegistry, sub []agent.Agent) (agent.Agent, error) {
 	m, err := models.Get(ctx, cfg.Model)
 	if err != nil {
@@ -56,6 +60,7 @@ func routingCreator(ctx context.Context, name string, cfg *RoutingAgentConfig, m
 	return llmagent.New(agentCfg)
 }
 
+// buildRoutingInstruction constructs the system instructions for the routing agent LLM.
 func buildRoutingInstruction(cfg *RoutingAgentConfig) string {
 	var sb strings.Builder
 
