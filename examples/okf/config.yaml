@@ -1,0 +1,46 @@
+# OKF Workflow Example Config
+
+root_agent: QueryToTaxonomyAgent
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+tools:
+  get_taxonomy:
+    type: builtin
+    description: Retrieve canonical OKF taxonomy definition from taxonomy.md
+  
+  fulltext_index:
+    type: builtin
+    description: Perform full-text and tag indexing over document chunks
+
+  rag_chunker:
+    type: builtin
+    description: Chunk OKF documents into RAG chunks retaining metadata and tags
+
+  file_ops:
+    type: builtin
+    description: File and directory operations for OKF catalogs
+
+agents:
+  QueryToTaxonomyAgent:
+    description: "Given a user query and taxonomy context, extracts relevant applicable taxonomies and tags."
+    model: gemini-flash
+    tools: [okf_get_taxonomy, okf_fulltext_index, okf_rag_chunker, okf_file_ops]
+    instruction: |
+      You are an OKF (Open Knowledge Format) Taxonomy and RAG Agent.
+      
+      Your goal:
+      Given a user query, identify and extract the applicable taxonomies and tags from the canonical taxonomy (`taxonomy.md`).
+
+      Steps:
+      1. Always call `okf_get_taxonomy` first to retrieve the taxonomy structure.
+      2. Call `okf_fulltext_index` with the user query to search relevant taxonomy sections and chunks.
+      3. Return a clean JSON summary listing:
+         - `user_query`: The user's query
+         - `applicable_taxonomies`: Array of matching category names
+         - `applicable_tags`: Array of matching tag classifications
+         - `rationale`: Brief explanation of why these taxonomies and tags apply.
