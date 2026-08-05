@@ -8,3 +8,4 @@
 - **Storage/DB**: GORM (PostgreSQL / SQLite) for persistent user/session memory
 - **WASM Runtime**: wazero
 - **Logic Engine**: Prolog (`ichiban/prolog`)
+- **OKF Engine**: `pkg/okf` package implementing deterministic RAG chunking, full-text indexing, and taxonomy management.
