@@ -7,6 +7,6 @@
 
 ---
 
-- [~] **Track: Update project architecture to implement ADK 2.0 graph workflow features**
+- [x] **Track: Update project architecture to implement ADK 2.0 graph workflow features**
 *Link: [./tracks/graph_workflow_20260814/](./tracks/graph_workflow_20260814/)*
 
