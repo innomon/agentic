@@ -1,0 +1,102 @@
+# ADK 2.0 Graph Workflow Example Configuration
+#
+# Demonstrates advanced graph capabilities:
+# 1. Cyclic Graph / Feedback Loop (quality_check -> refinement -> quality_check)
+# 2. Input/Output payload key mapping between nodes
+# 3. Sub-workflow nesting as graph nodes
+# 4. Configurable per-node retries
+
+root_agent: MainGraphWorkflow
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+agents:
+  MainGraphWorkflow:
+    type: workflow
+    description: "Graph workflow with cyclic feedback loops and sub-workflow nodes"
+    nodes:
+      - name: initial_drafter
+        agent: DrafterAgent
+        input_map:
+          prompt: "user_query"
+        output_map:
+          draft: "initial_draft"
+
+      - name: quality_check
+        agent: EvaluatorAgent
+        retries: 2
+        fallback_node: default_responder
+
+      - name: refinement
+        agent: RefinerAgent
+        input_map:
+          draft: "initial_draft"
+
+      - name: nested_sub_flow
+        sub_workflow: SummarySubWorkflow
+
+      - name: default_responder
+        agent: DefaultResponderAgent
+
+    edges:
+      - from: START
+        to: initial_drafter
+
+      - from: initial_drafter
+        to: quality_check
+
+      # Cyclic edge: loop back to refinement if quality check needs revisions
+      - from: quality_check
+        to: refinement
+        route: "needs_revision"
+
+      - from: refinement
+        to: quality_check
+
+      # Exit path when evaluation passes
+      - from: quality_check
+        to: nested_sub_flow
+        route: "passed"
+
+      - from: quality_check
+        to: default_responder
+        route: "DEFAULT"
+
+  SummarySubWorkflow:
+    type: workflow
+    description: "Nested sub-workflow node"
+    nodes:
+      - name: summarizer
+        agent: SummarizerAgent
+    edges:
+      - from: START
+        to: summarizer
+
+  DrafterAgent:
+    description: "Drafts initial content response"
+    model: gemini-flash
+    instruction: "Generate a draft based on the user prompt."
+
+  EvaluatorAgent:
+    description: "Evaluates quality and returns 'passed' or 'needs_revision'"
+    model: gemini-flash
+    instruction: "Evaluate the draft quality. Output 'passed' if good, or 'needs_revision' if improvement is needed."
+
+  RefinerAgent:
+    description: "Refines existing draft based on evaluation feedback"
+    model: gemini-flash
+    instruction: "Refine and improve the current draft."
+
+  SummarizerAgent:
+    description: "Summarizes final output in sub-workflow"
+    model: gemini-flash
+    instruction: "Summarize the final approved draft."
+
+  DefaultResponderAgent:
+    description: "Fallback responder node"
+    model: gemini-flash
+    instruction: "Provide standard fallback response."

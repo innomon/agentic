@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-
 	"strconv"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/v2/agent"
@@ -129,9 +129,15 @@ func loopCreator(_ context.Context, name string, cfg *LoopAgentConfig, _ ModelRe
 }
 
 type WorkflowNodeEntry struct {
-	Name  string `yaml:"name"`
-	Agent string `yaml:"agent"`
-	Tool  string `yaml:"tool"`
+	Name         string            `yaml:"name"`
+	Agent        string            `yaml:"agent"`
+	SubWorkflow  string            `yaml:"sub_workflow"`
+	Tool         string            `yaml:"tool"`
+	Wasm         string            `yaml:"wasm"`
+	InputMap     map[string]string `yaml:"input_map"`
+	OutputMap    map[string]string `yaml:"output_map"`
+	Retries      int               `yaml:"retries"`
+	FallbackNode string            `yaml:"fallback_node"`
 }
 
 type WorkflowEdgeEntry struct {
@@ -151,9 +157,29 @@ func (c *WorkflowAgentConfig) GetSubAgents() []string {
 	for _, n := range c.Nodes {
 		if n.Agent != "" {
 			subs = append(subs, n.Agent)
+		} else if n.SubWorkflow != "" {
+			subs = append(subs, n.SubWorkflow)
 		}
 	}
 	return subs
+}
+
+func (c *WorkflowAgentConfig) ExportMermaid(name string) string {
+	var sb strings.Builder
+	sb.WriteString("```mermaid\ngraph TD\n")
+	for _, e := range c.Edges {
+		routeLabel := ""
+		if e.Route != "" && e.Route != "DEFAULT" && e.Route != "default" {
+			routeLabel = fmt.Sprintf(" -->|%s| ", e.Route)
+		} else if e.Route == "DEFAULT" || e.Route == "default" {
+			routeLabel = " -->|DEFAULT| "
+		} else {
+			routeLabel = " --> "
+		}
+		sb.WriteString(fmt.Sprintf("  %s%s%s\n", e.From, routeLabel, e.To))
+	}
+	sb.WriteString("```\n")
+	return sb.String()
 }
 
 func parseRoute(r string) workflow.Route {
@@ -191,6 +217,16 @@ func workflowCreator(ctx context.Context, name string, cfg *WorkflowAgentConfig,
 			if err != nil {
 				return nil, fmt.Errorf("failed to create agent node %q: %w", n.Name, err)
 			}
+		} else if n.SubWorkflow != "" {
+			ag, ok := agentMap[n.SubWorkflow]
+			if !ok {
+				return nil, fmt.Errorf("sub-workflow %q not found in resolved sub-agents", n.SubWorkflow)
+			}
+			var err error
+			wfNode, err = workflow.NewAgentNode(ag, workflow.NodeConfig{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create sub-workflow node %q: %w", n.Name, err)
+			}
 		} else if n.Tool != "" {
 			tList, err := tools.GetMultiple(ctx, []string{n.Tool})
 			if err != nil || len(tList) == 0 {
@@ -201,8 +237,18 @@ func workflowCreator(ctx context.Context, name string, cfg *WorkflowAgentConfig,
 			if errNode != nil {
 				return nil, fmt.Errorf("failed to create tool node %q: %w", n.Name, errNode)
 			}
+		} else if n.Wasm != "" {
+			tList, err := tools.GetMultiple(ctx, []string{n.Wasm})
+			if err != nil || len(tList) == 0 {
+				return nil, fmt.Errorf("failed to get WASM tool %q for node %q: %w", n.Wasm, n.Name, err)
+			}
+			var errNode error
+			wfNode, errNode = workflow.NewToolNode(tList[0], workflow.NodeConfig{})
+			if errNode != nil {
+				return nil, fmt.Errorf("failed to create WASM tool node %q: %w", n.Name, errNode)
+			}
 		} else {
-			return nil, fmt.Errorf("node %q must specify either agent or tool", n.Name)
+			return nil, fmt.Errorf("node %q must specify agent, sub_workflow, tool, or wasm", n.Name)
 		}
 		nodesMap[n.Name] = wfNode
 	}

@@ -39,6 +39,7 @@ func main() {
 	a2aFlag := flag.Bool("a2a", false, "add a2a launcher")
 	consoleFlag := flag.Bool("console", false, "add console launcher")
 	apiFlag := flag.Bool("api", true, "add api launcher")
+	exportGraph := flag.Bool("export-graph", false, "export workflow graph to Mermaid format and exit")
 	runMsg := flag.String("run", "", "run a single message and exit")
 	host := flag.String("host", "localhost", "host to use for api_server_address and webui_address (e.g. your local IP)")
 	port := flag.Int("port", 8080, "port to listen on")
@@ -90,6 +91,17 @@ func main() {
 	// Redirect standard log library to our structured logger
 	log.SetFlags(0)
 	log.SetOutput(slog.NewLogLogger(logger.Log.Handler(), slog.LevelInfo).Writer())
+
+	if *exportGraph {
+		for name, agentEntry := range cfg.Agents {
+			if agentEntry.Type == "workflow" {
+				if wfCfg, ok := agentEntry.Config.(*registry.WorkflowAgentConfig); ok {
+					fmt.Printf("Workflow %q:\n%s\n", name, wfCfg.ExportMermaid(name))
+				}
+			}
+		}
+		return
+	}
 
 	if *runMsg != "" {
 		reg := registry.New(cfg).WithInput(*runMsg)
