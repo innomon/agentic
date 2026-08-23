@@ -1,0 +1,164 @@
+# Always-On Memory Agent Configuration
+# Always-on AI memory agent built with ADK-Go & Gemini
+
+root_agent: MemoryOrchestrator
+
+models:
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.0-flash
+    default: true
+
+tools:
+  store_memory:
+    type: builtin
+    description: Store a processed memory in the SQLite database.
+    parameters:
+      raw_text: {type: string, required: true, description: "The original input text or full description"}
+      summary: {type: string, required: true, description: "Concise 1-2 sentence summary"}
+      entities: {type: array, required: false, description: "Key entities (people, companies, products, concepts)"}
+      topics: {type: array, required: false, description: "2-4 topic tags"}
+      importance: {type: number, required: false, description: "Float 0.0 to 1.0 indicating importance"}
+      source: {type: string, required: false, description: "Where this memory came from"}
+
+  read_all_memories:
+    type: builtin
+    description: Read stored memories from the database, most recent first.
+
+  read_unconsolidated_memories:
+    type: builtin
+    description: Read memories that haven't been consolidated yet.
+
+  store_consolidation:
+    type: builtin
+    description: Store a consolidation result and mark source memories as consolidated.
+    parameters:
+      source_ids: {type: array, required: true, description: "List of memory IDs that were consolidated"}
+      summary: {type: string, required: true, description: "Synthesized summary across source memories"}
+      insight: {type: string, required: true, description: "Key pattern or insight discovered"}
+      connections: {type: array, required: false, description: "List of dicts with from_id, to_id, relationship"}
+
+  read_consolidation_history:
+    type: builtin
+    description: Read past consolidation insights from history.
+
+  get_memory_stats:
+    type: builtin
+    description: Get current memory statistics (total memories, unconsolidated count, consolidations).
+
+  delete_memory:
+    type: builtin
+    description: Delete a specific memory by ID.
+    parameters:
+      memory_id: {type: integer, required: true, description: "The ID of the memory to delete"}
+
+  clear_all_memories:
+    type: builtin
+    description: Clear all memories, consolidations, and inbox files.
+    parameters:
+      inbox_path: {type: string, required: false, description: "Path to inbox folder to clear"}
+
+agents:
+  MemoryOrchestrator:
+    type: llm
+    description: "Routes memory operations to specialist agents."
+    model: gemini-flash
+    instruction: |
+      You are the Memory Orchestrator for an always-on memory system.
+      Route user requests to the right specialist sub-agent:
+      - New information, documents, or content to ingest -> IngestAgent
+      - Consolidation request or pattern analysis -> ConsolidateAgent
+      - Questions, memory lookups, or recall requests -> QueryAgent
+      - Status check -> Call get_memory_stats and report the system statistics.
+
+      After the sub-agent completes its task, provide a concise and helpful summary to the user.
+    tools:
+      - get_memory_stats
+    sub_agents:
+      - IngestAgent
+      - ConsolidateAgent
+      - QueryAgent
+
+  IngestAgent:
+    description: "Processes raw text or file inputs into structured memory."
+    model: gemini-flash
+    tools:
+      - store_memory
+    instruction: |
+      You are a Memory Ingest Agent. You handle ALL types of input — text, images, audio, video, and documents.
+      For any input you receive:
+      1. Thoroughly analyze and describe what the content contains.
+      2. Create a concise 1-2 sentence summary.
+      3. Extract key entities (people, companies, products, concepts, objects, locations).
+      4. Assign 2-4 topic tags.
+      5. Rate importance from 0.0 to 1.0.
+      6. Call store_memory with all extracted information.
+
+      For images: describe the scene, objects, text, people, and visual details.
+      For audio/video: describe spoken content, sounds, scenes, and key moments.
+      For documents/PDFs: extract and summarize the document content.
+
+      Use the full description as raw_text in store_memory so context is preserved.
+      Always call store_memory. Be concise and accurate.
+      After storing, confirm what was stored in one sentence.
+
+  ConsolidateAgent:
+    description: "Merges related memories and finds cross-cutting patterns."
+    model: gemini-flash
+    tools:
+      - read_unconsolidated_memories
+      - store_consolidation
+    instruction: |
+      You are a Memory Consolidation Agent. Your job is:
+      1. Call read_unconsolidated_memories to see what memories need processing.
+      2. If fewer than 2 memories exist, inform the user that there are not enough memories to consolidate.
+      3. Find connections and cross-cutting patterns across the memories.
+      4. Create a synthesized summary and one key insight.
+      5. Call store_consolidation with source_ids, summary, insight, and connections.
+
+      Connections parameter format: list of dicts with 'from_id', 'to_id', 'relationship' keys.
+      Think deeply about cross-cutting patterns across different memories.
+
+  QueryAgent:
+    description: "Answers user questions using stored memories and consolidation insights."
+    model: gemini-flash
+    tools:
+      - read_all_memories
+      - read_consolidation_history
+    instruction: |
+      You are a Memory Query Agent. When asked a question:
+      1. Call read_all_memories to access the memory store.
+      2. Call read_consolidation_history for higher-level synthesized insights.
+      3. Synthesize a grounded answer based ONLY on stored memories and consolidations.
+      4. Reference memory IDs clearly: [Memory 1], [Memory 2], etc.
+      5. If no relevant memories exist, state that clearly and honestly.
+
+      Be thorough, accurate, and concise. Always cite sources using [Memory ID].
+
+  MemoryGraphWorkflow:
+    type: workflow
+    description: "DAG workflow graph for Memory Ingestion, Consolidation, and Querying"
+    nodes:
+      - name: classify_request
+        agent: MemoryOrchestrator
+      - name: ingest_node
+        agent: IngestAgent
+      - name: consolidate_node
+        agent: ConsolidateAgent
+      - name: query_node
+        agent: QueryAgent
+    edges:
+      - from: START
+        to: classify_request
+      - from: classify_request
+        to: ingest_node
+        route: "ingest"
+      - from: classify_request
+        to: consolidate_node
+        route: "consolidate"
+      - from: classify_request
+        to: query_node
+        route: "query"
+      - from: classify_request
+        to: query_node
+        route: "DEFAULT"

@@ -12,6 +12,7 @@ import (
 	"github.com/innomon/agentic/pkg/config"
 	"github.com/innomon/agentic/pkg/console"
 	"github.com/innomon/agentic/pkg/logger"
+	_ "github.com/innomon/agentic/pkg/alwaysonmem"
 	_ "github.com/innomon/agentic/pkg/fsread"
 	_ "github.com/innomon/agentic/pkg/gnogent"
 	_ "github.com/innomon/agentic/pkg/ml"
